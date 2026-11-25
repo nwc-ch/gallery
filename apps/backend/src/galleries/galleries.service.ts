@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Gallery } from './gallery.entity.js';
@@ -11,6 +11,12 @@ export class GalleriesService {
 
   list(): Promise<Gallery[]> {
     return this.galleries.find({ order: { createdAt: 'DESC', id: 'DESC' } });
+  }
+
+  async findOne(id: string): Promise<Gallery> {
+    const gallery = await this.galleries.findOneBy({ id });
+    if (!gallery) throw new NotFoundException('Galerie nicht gefunden.');
+    return gallery;
   }
 
   create(title: string, createdById: string): Promise<Gallery> {

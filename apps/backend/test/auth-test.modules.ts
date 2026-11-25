@@ -5,6 +5,10 @@ import { UserRole } from '../src/users/user-role.js';
 
 export const testUsers = new Map<string, AuthUser>();
 export const testGalleryRepository = {
+  findOneBy: vi.fn(async ({ id }: { id: string }) => ({
+    id,
+    title: 'Testgalerie',
+  })),
   find: vi.fn(async () => []),
   create: vi.fn((data: object) => data),
   save: vi.fn(async (data: object) => ({
@@ -12,6 +16,13 @@ export const testGalleryRepository = {
     ...data,
     createdAt: new Date(),
   })),
+};
+
+export const testImageRepository = {
+  find: vi.fn(async () => []),
+  findOneBy: vi.fn(async () => null),
+  create: vi.fn((data: object) => data),
+  save: vi.fn(async (data: object) => ({ ...data, createdAt: new Date() })),
 };
 
 @Module({})

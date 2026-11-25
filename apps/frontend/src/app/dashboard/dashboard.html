@@ -57,7 +57,9 @@
           @for (gallery of galleries(); track gallery.id) {
             <li class="gallery-card">
               <span class="gallery-symbol" aria-hidden="true">▧</span>
-              <h3>{{ gallery.title }}</h3>
+              <h3>
+                <a [routerLink]="['/galleries', gallery.id]">{{ gallery.title }}</a>
+              </h3>
             </li>
           }
         </ul>

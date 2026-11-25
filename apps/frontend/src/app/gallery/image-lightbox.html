@@ -1,0 +1,95 @@
+<dialog
+  #dialog
+  class="lightbox"
+  aria-label="Bild in Originalgröße"
+  (cancel)="cancel($event)"
+  (keydown)="keydown($event)"
+>
+  <header class="toolbar">
+    <div class="image-info">
+      <strong>{{ current().filename }}</strong
+      ><span aria-live="polite"
+        >{{ index() + 1 }} / {{ images().length }} · {{ current().width }} ×
+        {{ current().height }} px</span
+      >
+    </div>
+    <div class="tools">
+      <button
+        type="button"
+        (click)="toggleZoom()"
+        [disabled]="loading() || failed()"
+        [attr.aria-pressed]="zoomed()"
+        aria-label="Zwischen eingepasster Ansicht und 100 Prozent wechseln"
+      >
+        {{ zoomed() ? 'Einpassen' : '100 %' }}
+      </button>
+      <button
+        type="button"
+        (click)="close()"
+        class="close"
+        autofocus
+        aria-label="Bildansicht schließen"
+      >
+        ✕
+      </button>
+    </div>
+  </header>
+  <div class="picture-area">
+    <div
+      #stage
+      class="stage"
+      [class.zoomed]="zoomed()"
+      [attr.aria-busy]="loading()"
+      (dblclick)="toggleZoom()"
+      (pointerdown)="pointerDown($event)"
+      (pointermove)="pointerMove($event)"
+      (pointerup)="pointerUp()"
+      (pointercancel)="pointerUp()"
+      (lostpointercapture)="pointerUp()"
+      tabindex="0"
+      aria-label="Bildfläche, in der 100-Prozent-Ansicht zum Verschieben ziehen oder scrollen"
+    >
+      <img
+        [src]="source()"
+        [alt]="current().filename"
+        [class.invisible]="loading() || failed()"
+        draggable="false"
+        (load)="loaded()"
+        (error)="loadFailed()"
+      />
+    </div>
+    @if (loading()) {
+      <div class="message" role="status">
+        <span class="spinner" aria-hidden="true"></span>Original wird geladen …
+      </div>
+    }
+    @if (failed()) {
+      <div class="message" role="alert">
+        <p>Das Original konnte nicht geladen werden.</p>
+        <button type="button" (click)="retry()">Erneut laden</button>
+      </div>
+    }
+    @if (index() > 0) {
+      <button
+        class="navigation previous"
+        type="button"
+        (click)="move(-1)"
+        aria-label="Vorheriges Bild"
+      >
+        ‹
+      </button>
+    }
+    @if (index() < images().length - 1) {
+      <button class="navigation next" type="button" (click)="move(1)" aria-label="Nächstes Bild">
+        ›
+      </button>
+    }
+  </div>
+  <footer>
+    {{
+      zoomed()
+        ? '100 % · Zum Verschieben ziehen oder scrollen'
+        : 'Vollständiges Bild · Doppelklick für 100 %'
+    }}<span>Pfeiltasten zum Wechseln · Esc zum Schließen</span>
+  </footer>
+</dialog>

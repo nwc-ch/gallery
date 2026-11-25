@@ -1,0 +1,105 @@
+<div class="gallery-page">
+  <header>
+    <a routerLink="/dashboard" class="brand">gallery<span>.</span></a
+    ><a routerLink="/dashboard" class="back">← Alle Galerien</a>
+  </header>
+  <main>
+    <div class="eyebrow">DEINE GALERIE</div>
+    <h1>{{ gallery()?.title ?? 'Galerie' }}</h1>
+    @if (loading()) {
+      <p role="status" class="muted">Galerie wird geladen …</p>
+    }
+    @if (error()) {
+      <p role="alert" class="error">{{ error() }}</p>
+    }
+    @if (gallery()) {
+      <div class="gallery-meta">
+        <span>{{ images().length }} {{ images().length === 1 ? 'Bild' : 'Bilder' }}</span
+        ><span>Zum Vergrößern ein Bild auswählen.</span>
+      </div>
+      @if (auth.user()?.role === 'admin') {
+        <section class="upload" aria-labelledby="upload-heading">
+          <div>
+            <h2 id="upload-heading">Bilder hinzufügen</h2>
+            <p>JPG · bis 50 MiB je Bild · Mehrfachauswahl möglich</p>
+          </div>
+          <label class="upload-button" [class.disabled]="uploading() || !uploadAvailable()"
+            ><span>{{ uploading() ? 'Bilder werden hochgeladen …' : 'JPG-Bilder auswählen' }}</span
+            ><input
+              type="file"
+              accept="image/jpeg,.jpg,.jpeg"
+              multiple
+              [disabled]="uploading() || !uploadAvailable()"
+              (change)="upload($event)"
+          /></label>
+          @if (!uploadAvailable()) {
+            <p class="upload-note">Der Bildspeicher ist noch nicht verfügbar.</p>
+          }
+          @if (progress()) {
+            <p class="upload-progress" role="status" aria-live="polite">{{ progress() }}</p>
+          }
+          @if (uploadErrors().length) {
+            <ul class="upload-errors" role="alert">
+              @for (message of uploadErrors(); track $index) {
+                <li>{{ message }}</li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    }
+    <div #grid class="justified-gallery" aria-label="Bilder der Galerie">
+      @for (row of rows(); track $index) {
+        <div class="image-row" [style.height.px]="row.height">
+          @for (item of row.items; track images()[item.index].id) {
+            @let image = images()[item.index];
+            <button
+              type="button"
+              class="image-tile"
+              [style.width.px]="item.width"
+              (click)="selectedIndex.set(item.index)"
+              [attr.aria-label]="image.filename + ' in Originalgröße öffnen'"
+            >
+              @if (failedPreviews().has(image.id)) {
+                <span class="preview-error"
+                  >Vorschau nicht verfügbar<br /><small>Original öffnen</small></span
+                >
+              } @else {
+                <img
+                  [src]="image.previewUrl"
+                  [alt]="image.filename"
+                  [width]="image.width"
+                  [height]="image.height"
+                  loading="lazy"
+                  decoding="async"
+                  (error)="previewFailed(image.id)"
+                />
+              }
+              <span class="image-caption">{{ image.filename }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+    @if (gallery() && !loading() && !images().length) {
+      <div class="empty">
+        <span aria-hidden="true">▧</span>
+        <h2>Noch keine Bilder</h2>
+        <p>
+          {{
+            auth.user()?.role === 'admin'
+              ? 'Lade die ersten JPG-Bilder für diese Galerie hoch.'
+              : 'Hier erscheinen die Bilder, sobald sie hochgeladen wurden.'
+          }}
+        </p>
+      </div>
+    }
+  </main>
+</div>
+@if (selectedIndex() !== null) {
+  <app-image-lightbox
+    [images]="images()"
+    [initialIndex]="selectedIndex()!"
+    (closed)="selectedIndex.set(null)"
+  />
+}

@@ -3,6 +3,8 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Req,
   Res,
@@ -40,6 +42,17 @@ export class GalleriesController {
   list(@Res({ passthrough: true }) response: Response) {
     response.setHeader('Cache-Control', 'no-store');
     return this.galleries.list();
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Galerie laden' })
+  @ApiOkResponse({ type: Gallery })
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.galleries.findOne(id);
   }
 
   @Post()

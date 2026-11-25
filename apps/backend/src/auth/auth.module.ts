@@ -4,11 +4,12 @@ import { GoogleIdentityService } from './google-identity.service.js';
 import { SessionGuard } from './session.guard.js';
 import { UsersModule } from '../users/users.module.js';
 import { AdminGuard } from './admin.guard.js';
+import { SameOriginGuard } from './same-origin.guard.js';
 
 @Module({
   imports: [UsersModule],
   controllers: [AuthController],
-  providers: [GoogleIdentityService, SessionGuard, AdminGuard],
-  exports: [SessionGuard, AdminGuard],
+  providers: [GoogleIdentityService, SessionGuard, AdminGuard, SameOriginGuard],
+  exports: [SessionGuard, AdminGuard, SameOriginGuard],
 })
 export class AuthModule {}

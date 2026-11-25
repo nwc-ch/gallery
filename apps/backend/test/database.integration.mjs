@@ -10,8 +10,11 @@ import { AppModule } from '../dist/app.module.js';
 import { UserRole } from '../dist/users/user-role.js';
 import { Gallery } from '../dist/galleries/gallery.entity.js';
 import { GalleriesService } from '../dist/galleries/galleries.service.js';
+import { GalleryImage } from '../dist/galleries/gallery-image.entity.js';
+import { GalleryImagesService } from '../dist/galleries/gallery-images.service.js';
+import sharp from 'sharp';
 
-test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
+await test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
   await dataSource.initialize();
   const runner = dataSource.createQueryRunner();
   try {
@@ -62,6 +65,39 @@ test('MariaDB: migrated schema matches entities and Google profiles are persiste
       .findOneByOrFail({ id: gallery.id });
     assert.equal(stored.title, 'Meine Galerie');
     assert.equal(stored.createdById, id);
+    const objects = new Map();
+    const imageService = new GalleryImagesService(
+      runner.manager.getRepository(GalleryImage),
+      galleries,
+      {
+        configured: true,
+        put: async (key, buffer) => {
+          objects.set(key, buffer);
+        },
+        remove: async (key) => {
+          objects.delete(key);
+        },
+      },
+    );
+    const jpg = await sharp({
+      create: { width: 30, height: 20, channels: 3, background: 'blue' },
+    })
+      .jpeg()
+      .toBuffer();
+    const image = await imageService.upload(gallery.id, {
+      buffer: jpg,
+      size: jpg.length,
+      originalname: 'integration.jpg',
+      mimetype: 'image/jpeg',
+    });
+    const imageRow = await runner.manager
+      .getRepository(GalleryImage)
+      .findOneByOrFail({ id: image.id, galleryId: gallery.id });
+    assert.equal(imageRow.width, 30);
+    assert.equal(imageRow.height, 20);
+    assert.deepEqual(objects.get(imageRow.originalKey), jpg);
+    assert.ok(objects.has(imageRow.previewKey));
+    assert.equal((await imageService.list(gallery.id)).images[0].id, image.id);
     assert.equal(await repository.countBy({ id }), 1);
     const updated = await repository.findOneByOrFail({ id });
     assert.equal(updated.createdAt.getTime(), created.createdAt.getTime());
@@ -73,7 +109,7 @@ test('MariaDB: migrated schema matches entities and Google profiles are persiste
   }
 });
 
-test('NestJS connects to MariaDB and provides the user repository', async () => {
+await test('NestJS connects to MariaDB and provides the user repository', async () => {
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
   });

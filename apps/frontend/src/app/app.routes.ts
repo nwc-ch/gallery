@@ -13,5 +13,10 @@ export const routes: Routes = [
     canActivate: [authenticatedGuard],
     loadComponent: () => import('./dashboard/dashboard').then((m) => m.Dashboard),
   },
+  {
+    path: 'galleries/:id',
+    canActivate: [authenticatedGuard],
+    loadComponent: () => import('./gallery/gallery-page').then((m) => m.GalleryPage),
+  },
   { path: '**', redirectTo: 'login' },
 ];

@@ -124,6 +124,79 @@ sowie Anlegen und Aktualisieren von Benutzerprofilen. Testdaten werden innerhalb
 einer Transaktion angelegt und anschließend zurückgerollt. Die üblichen Unit- und
 HTTP-Tests laufen unabhängig von einer Datenbank.
 
+## Bilder und Cloudflare R2
+
+Im Dashboard eine Galerie öffnen. Administratoren können dort mehrere JPG-Dateien
+auswählen. Die Dateien werden nacheinander hochgeladen; erfolgreiche Uploads
+erscheinen sofort in der Galerie. Fehlgeschlagene Dateien werden einzeln angezeigt,
+die übrigen Dateien werden weiterverarbeitet.
+
+### Speicher konfigurieren
+
+1. In Cloudflare R2 einen **privaten Bucket mit dem Namen `gallery`** anlegen.
+2. R2-S3-Zugangsdaten mit Lese- und Schreibrechten für diesen Bucket erstellen;
+   für das Aufräumen fehlgeschlagener Uploads werden auch Löschrechte benötigt.
+3. In `apps/backend/.env` eintragen und das Backend neu starten:
+
+   ```dotenv
+   R2_ACCOUNT_ID=deine-cloudflare-account-id
+   R2_ACCESS_KEY_ID=deine-r2-access-key-id
+   R2_SECRET_ACCESS_KEY=dein-r2-secret-access-key
+   ```
+
+   Bei einem regionalen Bucket kann `R2_ENDPOINT` auf den zugehörigen
+   HTTPS-S3-Endpunkt gesetzt werden, z. B.
+   `https://ACCOUNT_ID.eu.r2.cloudflarestorage.com`. Ohne diese Variable verwendet
+   das Backend `https://ACCOUNT_ID.r2.cloudflarestorage.com`.
+
+Die Zugangsdaten bleiben im Backend. Der Browser lädt Vorschaubilder und Originale
+über authentifizierte API-Routen; dafür sind weder ein öffentlicher R2-Bucket
+noch eine R2-CORS-Freigabe nötig. Ohne konfigurierte Zugangsdaten ist der Upload
+deaktiviert. Die Verfügbarkeitsanzeige prüft die Konfiguration; R2-Rechte und
+Netzwerkzugriff werden erst beim tatsächlichen Upload geprüft.
+
+### Verarbeitung und Anzeige
+
+- Erlaubt sind `.jpg`/`.jpeg` mit tatsächlichem JPEG-Inhalt, maximal **50 MiB**
+  pro Datei und **100 Megapixel**. Umbenannte PNGs und beschädigte JPGs werden
+  abgewiesen.
+- Das Original wird einschließlich Metadaten unverändert gespeichert. Die
+  Vorschau ist ein progressives JPG mit maximal 1200 × 1200 Pixeln, Qualität 82,
+  ohne Vergrößerung oder Beschnitt. EXIF-Ausrichtung wird auf die Vorschau
+  angewendet; Vorschau-Metadaten werden entfernt.
+- R2-Objekte liegen unter
+  `galleries/GALERIE_ID/BILD_ID/original.jpg` und `…/preview.jpg`.
+  Bildabmessungen, Dateiname und Objektschlüssel stehen in MariaDB. Die neue
+  TypeORM-Migration legt `gallery_images` an.
+- Die Galerie verwendet ausschließlich Vorschaubilder und berechnet ein
+  responsives **Justified Gallery**-Layout: gemeinsame Höhe je Zeile, erhaltene
+  Seitenverhältnisse, volle Zeilenbreite. Die letzte Zeile wird nicht aufgeblasen.
+- Erst beim Öffnen eines Bildes wird dessen Original geladen. Die Ansicht passt
+  das ganze Bild ohne Beschnitt in den verfügbaren Bildschirm ein. **100 %**
+  beziehungsweise Doppelklick wechselt zur Detailansicht mit Scrollen und Ziehen.
+- Schaltflächen und linke/rechte Pfeiltaste wechseln das Bild. Am ersten Bild
+  fehlt Zurück, am letzten Weiter; es gibt keinen Umlauf. **Esc** oder die
+  Schließen-Schaltfläche beendet die Ansicht. Navigation setzt den Zoom zurück.
+
+API (Anmeldung erforderlich):
+
+- `GET /api/galleries/:id`: Galerie laden.
+- `GET /api/galleries/:galleryId/images`: Bilder und Verfügbarkeit des Uploads.
+- `POST /api/galleries/:galleryId/images`: Admin-Upload als `multipart/form-data`
+  mit Feld `file` und Header `X-Requested-With: Gallery`.
+- `GET /api/galleries/:galleryId/images/:imageId/preview`: JPG-Vorschau.
+- `GET /api/galleries/:galleryId/images/:imageId/original`: unverändertes Original.
+
+Bei Speicher- oder Datenbankfehlern versucht das Backend, beide neu angelegten
+Objekte zu entfernen. R2 und MariaDB bilden keine gemeinsame Transaktion;
+nach einem Prozessabbruch oder fehlgeschlagenem Aufräumen können unreferenzierte
+Objekte verbleiben. Ein solcher Aufräumfehler wird im Backend protokolliert.
+Das Ausführen oder Zurücknehmen einer DB-Migration entfernt keine R2-Objekte.
+
+Die automatisierten Tests prüfen R2-SDK-Aufrufe mit simuliertem Speicher sowie
+JPG-Verarbeitung, Berechtigungen, Justified-Layout und Bildnavigation. Ein echter
+R2-Upload erfordert die oben genannten Zugangsdaten.
+
 ## Rollen und Galerien
 
 Neue und bestehende Benutzer erhalten zunächst die Rolle `user`. Administratoren

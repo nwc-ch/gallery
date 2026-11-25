@@ -183,11 +183,26 @@ input:focus-visible {
   gap: 20px;
 }
 .gallery-card {
+  position: relative;
   border: 1px solid #e1e5d8;
   border-radius: 12px;
   padding: 28px;
   background: #fcfbf8;
   overflow-wrap: anywhere;
+}
+.gallery-card a {
+  color: inherit;
+  text-decoration: none;
+}
+.gallery-card a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
+.gallery-card:has(a:hover) {
+  border-color: #879b77;
+  background: #f3f5ed;
 }
 .gallery-symbol {
   display: grid;
