@@ -1,0 +1,86 @@
+name: gallery-live
+
+x-database-environment: &database-environment
+  NODE_ENV: production
+  DB_HOST: db
+  DB_PORT: "3306"
+  DB_DATABASE: ${DB_DATABASE:-gallery}
+  DB_USERNAME: ${DB_USERNAME:-gallery}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD setzen}
+
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_DATABASE:-gallery}
+      MARIADB_USER: ${DB_USERNAME:-gallery}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD setzen}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD setzen}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  migrate:
+    image: ${GALLERY_IMAGE:-ghcr.io/nwc-ch/gallery:latest}
+    restart: "no"
+    environment: *database-environment
+    command:
+      [
+        "node",
+        "/app/node_modules/typeorm/cli.js",
+        "migration:run",
+        "-d",
+        "dist/database/data-source.js",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - database
+
+  app:
+    image: ${GALLERY_IMAGE:-ghcr.io/nwc-ch/gallery:latest}
+    restart: unless-stopped
+    init: true
+    environment:
+      <<: *database-environment
+      PORT: "3000"
+      APP_URL: https://gallery.0808.ch
+      TRUST_PROXY: "1"
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET mit mindestens 32 Zeichen setzen}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID setzen}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET setzen}
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      database:
+      proxy:
+        aliases:
+          - gallery-app
+
+networks:
+  database:
+    internal: true
+  proxy:
+    external: true
+    name: ${NPM_NETWORK:?Docker-Netzwerk von Nginx Proxy Manager setzen}
+
+volumes:
+  mariadb_data:

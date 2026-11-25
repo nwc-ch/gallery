@@ -35,10 +35,24 @@ npm run start:frontend
 - OpenAPI JSON: <http://localhost:3000/api/openapi.json>
 
 Der Angular-Entwicklungsserver leitet `/api` und Unterpfade an das Backend weiter.
-Frontend-Code kann daher relative API-URLs verwenden. Für produktive Deployments
-muss das Hosting dieselbe Weiterleitung bereitstellen. Der Backend-Port lässt
+Frontend-Code kann daher relative API-URLs verwenden. Im Produktionsimage liefert
+NestJS das gebaute Frontend selbst aus; API und Frontend nutzen dieselbe Domain.
+Der Backend-Port lässt
 sich über die Umgebungsvariable `PORT` ändern; bei lokaler Änderung auch das
 Ziel in `apps/frontend/proxy.conf.json` anpassen.
+
+## Produktionsimage und Live-Server
+
+Der [Dockerfile](Dockerfile) baut ein gemeinsames Backend-/Frontend-Image.
+Die [GitHub-Actions-Pipeline](.github/workflows/backend-image.yaml) prüft das
+Projekt und veröffentlicht es unter `ghcr.io/nwc-ch/gallery`.
+
+Für `https://gallery.0808.ch` liegt eine separate
+[Live-Compose-Datei](deploy/docker-compose.yaml) mit MariaDB und einmaligem
+Migrationslauf vor. Der vorhandene Nginx Proxy Manager übernimmt HTTPS;
+Sitzungen bleiben im Arbeitsspeicher. Einrichtung und Updates stehen in der
+[Deployment-Anleitung](deploy/README.md). Die Compose-Datei im Projektverzeichnis
+bleibt für die lokale Entwicklungsdatenbank zuständig.
 
 ## MariaDB und TypeORM
 
@@ -290,14 +304,13 @@ geprüft. Die Sitzung verwendet ein HttpOnly-Cookie mit `SameSite=Lax`, in
 Produktion zusätzlich `Secure`. Google-Zugriffstokens werden nicht gespeichert.
 Die API stellt `/api/auth/me` nur mit gültiger Sitzung bereit.
 
-**Betrieb:** Aktuell liegen Sitzungen im Arbeitsspeicher des Backends; ein Neustart
-meldet Benutzer ab. Vor einem produktiven Deployment einen gemeinsamen,
-persistenten Session-Store (z. B. Redis) in `app.setup.ts` anbinden. Außerdem
-`NODE_ENV=production`, `APP_URL=https://deine-domain` und einen festen sicheren
-`SESSION_SECRET` setzen, die produktive Callback-URI bei Google registrieren und
-`/api` unter derselben Domain weiterleiten. `TRUST_PROXY=1` nur hinter genau einem
-vertrauenswürdigen Reverse Proxy setzen. Ohne Google-Zugangsdaten zeigt die
-Login-Seite eine Verfügbarkeitsmeldung.
+**Betrieb:** Sitzungen bleiben auch im Live-Betrieb im Arbeitsspeicher des einen
+App-Containers; ein Neustart meldet Benutzer ab. Die Live-Compose-Datei setzt
+`NODE_ENV=production`, `APP_URL=https://gallery.0808.ch` und `TRUST_PROXY=1` für
+den vorgeschalteten Nginx Proxy Manager. Einen festen sicheren `SESSION_SECRET`
+in der Serverkonfiguration setzen und die produktive Callback-URI bei Google
+registrieren. Ohne Google-Zugangsdaten zeigt die Login-Seite eine
+Verfügbarkeitsmeldung.
 
 Implementierung nach [Googles Dokumentation zum Webserver-Flow](https://developers.google.com/identity/protocols/oauth2/web-server).
 
