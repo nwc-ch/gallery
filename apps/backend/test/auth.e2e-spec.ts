@@ -4,6 +4,12 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 import { GoogleIdentityService } from '../src/auth/google-identity.service.js';
+import { DatabaseModule } from '../src/database/database.module.js';
+import { UsersModule } from '../src/users/users.module.js';
+import { TestDatabaseModule, TestUsersModule } from './auth-test.modules.js';
+import { testGalleryRepository, testUsers } from './auth-test.modules.js';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Gallery } from '../src/galleries/gallery.entity.js';
 
 describe('Google authentication', () => {
   let app: INestApplication;
@@ -20,9 +26,16 @@ describe('Google authentication', () => {
   };
 
   beforeEach(async () => {
+    testUsers.clear();
     google.verify.mockReset();
     google.authorizationUrl.mockClear();
     const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideModule(DatabaseModule)
+      .useModule(TestDatabaseModule)
+      .overrideProvider(getRepositoryToken(Gallery))
+      .useValue(testGalleryRepository)
+      .overrideModule(UsersModule)
+      .useModule(TestUsersModule)
       .overrideProvider(GoogleIdentityService)
       .useValue(google)
       .compile();
@@ -65,6 +78,7 @@ describe('Google authentication', () => {
       id: 'google-123',
       email: 'person@example.com',
       name: 'Test Person',
+      role: 'user',
     });
     expect(profile.headers['cache-control']).toBe('no-store');
     await agent

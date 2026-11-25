@@ -15,6 +15,8 @@ Im Projektverzeichnis:
 
 ```sh
 npm install
+npm run db:up
+npm run migration:run
 ```
 
 Anschließend in zwei Terminals starten:
@@ -37,6 +39,119 @@ Frontend-Code kann daher relative API-URLs verwenden. Für produktive Deployment
 muss das Hosting dieselbe Weiterleitung bereitstellen. Der Backend-Port lässt
 sich über die Umgebungsvariable `PORT` ändern; bei lokaler Änderung auch das
 Ziel in `apps/frontend/proxy.conf.json` anpassen.
+
+## MariaDB und TypeORM
+
+`docker-compose.yaml` startet MariaDB 11.8 mit Healthcheck und dauerhaftem Volume.
+Der Port ist nur lokal unter `127.0.0.1:3307` erreichbar. Das Backend verwendet
+TypeORM mit dem `mysql2`-Treiber. Die lokalen Standardwerte sind:
+
+| Einstellung | Wert |
+| --- | --- |
+| Host / Port | `127.0.0.1:3307` |
+| Datenbank | `gallery` |
+| Benutzer | `gallery` |
+| Passwort | `gallery_local` |
+
+Die Entwicklungszugangsdaten sind ausschließlich für die lokale Datenbank gedacht.
+`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` und `DB_PASSWORD` lassen sich
+in `apps/backend/.env` konfigurieren; die Vorlage enthält dieselben Standardwerte.
+Die App und die TypeORM-CLI laden diese Datei unabhängig vom Arbeitsverzeichnis.
+Vorhandene Umgebungsvariablen haben Vorrang.
+
+```sh
+npm run db:up
+npm run migration:run
+npm run start:backend
+```
+
+`npm run db:down` stoppt die Datenbank; das Volume bleibt erhalten.
+Wer vom Standard abweichende DB-Werte in `apps/backend/.env` einträgt, startet
+Compose mit derselben Datei, damit Container und Backend übereinstimmen:
+
+```sh
+docker compose --env-file apps/backend/.env up -d --wait db
+```
+
+Compose übernimmt `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` und optional
+`DB_ROOT_PASSWORD`. Bei einem bestehenden Volume ändern diese Werte nicht die
+bereits angelegten Datenbankkonten. Das Backend verbindet sich mit dem normalen
+Anwendungsbenutzer, nicht mit root.
+
+### Schemaänderungen
+
+`synchronize` und `migrationsRun` sind deaktiviert. Das Schema wird ausschließlich
+über versionierte TypeORM-Migrationen verändert; der Backend-Start ändert es nicht.
+Die gemeinsame Konfiguration liegt in `src/database/database.config.ts`, die
+CLI-DataSource in `src/database/data-source.ts` (Pfade relativ zum Backend).
+
+1. Datenbank starten und ausstehende Migrationen ausführen.
+2. Entities ändern und die Migration gegen die laufende Datenbank erzeugen:
+
+   ```sh
+   npm run migration:generate -- src/database/migrations/BeschreibungDerAenderung
+   ```
+
+3. Die erzeugte Datei unter `apps/backend/src/database/migrations` prüfen und
+   zusammen mit den Entity-Änderungen versionieren.
+4. Migrationen ausführen und den Status prüfen:
+
+   ```sh
+   npm run migration:run
+   npm run migration:show
+   ```
+
+`npm run migration:revert` führt die `down`-Methode der letzten Migration aus.
+Dabei können Daten verloren gehen, beispielsweise beim Zurücknehmen der initialen
+Benutzertabelle. MariaDB führt viele DDL-Befehle mit implizitem Commit aus;
+eine Migration mit mehreren DDL-Schritten ist daher nicht vollständig atomar.
+
+Die Befehle kompilieren das Backend vor dem TypeORM-CLI-Aufruf. Dadurch verwenden
+NestJS und die CLI dieselben ESM-Entities und Migrationen ohne zusätzlichen
+TypeScript-Laufzeitloader. Im Deployment nach dem Build und vor dem App-Start:
+
+```sh
+npm run migration:run:prod --workspace=backend
+```
+
+Die initiale Migration wurde von TypeORM erzeugt. Sie legt `users` an. Google-Logins
+legen Benutzer anhand der stabilen Google-ID an oder aktualisieren Name, E-Mail
+und den Zeitpunkt der letzten Anmeldung. Die Migrationstabelle heißt
+`typeorm_migrations`.
+
+`npm run test:database` prüft gegen die laufende, migrierte MariaDB den Schema-Abgleich
+sowie Anlegen und Aktualisieren von Benutzerprofilen. Testdaten werden innerhalb
+einer Transaktion angelegt und anschließend zurückgerollt. Die üblichen Unit- und
+HTTP-Tests laufen unabhängig von einer Datenbank.
+
+## Rollen und Galerien
+
+Neue und bestehende Benutzer erhalten zunächst die Rolle `user`. Administratoren
+haben die Rolle `admin` und können im Dashboard Galerien mit einem Titel anlegen.
+Titel sind erforderlich, werden am Rand von Leerzeichen bereinigt und dürfen
+höchstens 160 Zeichen lang sein. Alle angemeldeten Benutzer sehen die Galerien.
+Galerien und ihre Ersteller werden in MariaDB gespeichert.
+
+Nach der ersten Google-Anmeldung kann ein bestimmtes Konto lokal zum Admin
+ernannt werden. Die stabile Google-ID steht in `/api/auth/me` als `id` oder in
+der Datenbanktabelle `users`:
+
+```sh
+npm run user:role -- GOOGLE_ID admin
+```
+
+Mit `npm run user:role -- GOOGLE_ID user` wird die Berechtigung wieder entzogen.
+Es gibt keinen öffentlichen Endpunkt zur Rollenzuweisung. Ein Google-Login
+überschreibt die bereits gespeicherte Rolle nicht. Geschützte Anfragen laden
+den Benutzer einschließlich Rolle aus der Datenbank neu; Änderungen gelten
+daher auch für laufende Sitzungen. Nach einer Rollenzuweisung das Dashboard
+neu laden, damit das Formular erscheint.
+
+Die API bietet `GET /api/galleries` für angemeldete Benutzer sowie
+`POST /api/galleries` mit `{ "title": "Meine Galerie" }` nur für Administratoren.
+Schreibende Anfragen benötigen zusätzlich den Header `X-Requested-With: Gallery`.
+Die neue TypeORM-Migration ergänzt die Rolle und die Tabelle `galleries`;
+auf anderen Installationen vor dem Backend-Start `npm run migration:run` ausführen.
 
 ## Google-Anmeldung
 

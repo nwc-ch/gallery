@@ -2,8 +2,11 @@
   <header>
     <a class="brand" href="/dashboard">gallery<span>.</span></a>
     <div class="account">
-      <span>{{ auth.user()?.email }}</span
-      ><button type="button" (click)="logout()" [disabled]="busy()">
+      <span>{{ auth.user()?.email }}</span><button
+        type="button"
+        (click)="logout()"
+        [disabled]="busy()"
+      >
         {{ busy() ? 'Wird abgemeldet …' : 'Abmelden' }}
       </button>
     </div>
@@ -15,14 +18,62 @@
     @if (error()) {
       <p role="alert" class="error">{{ error() }}</p>
     }
-    <section class="welcome" aria-labelledby="welcome-title">
-      <div class="mark" aria-hidden="true">g.</div>
-      <h2 id="welcome-title">Ein neuer Anfang.</h2>
-      <p>
-        Dein Raum für Inspiration ist bereit.<br />Hier findest du künftig deine Inhalte im
-        Überblick.
-      </p>
-      <span class="status"><span aria-hidden="true">●</span> Mit Google angemeldet</span>
+    @if (auth.user()?.role === 'admin') {
+      <section class="create-gallery" aria-labelledby="create-title">
+        <span class="status">Admin</span>
+        <h2 id="create-title">Neue Galerie</h2>
+        <p>Gib deiner Galerie einen Titel.</p>
+        <form (ngSubmit)="createGallery()">
+          <label for="gallery-title">Titel</label>
+          <div class="form-row">
+            <input
+              id="gallery-title"
+              name="title"
+              [(ngModel)]="title"
+              required
+              maxlength="160"
+              placeholder="Zum Beispiel: Sommer in den Bergen"
+              [disabled]="saving()"
+            />
+            <button
+              type="submit"
+              [disabled]="saving() || !title.trim() || title.trim().length > 160"
+            >
+              {{ saving() ? 'Wird angelegt …' : 'Galerie anlegen' }}
+            </button>
+          </div>
+        </form>
+        @if (success()) {
+          <p role="status" class="success">{{ success() }}</p>
+        }
+      </section>
+    }
+    <section class="gallery-section" aria-labelledby="galleries-title" [attr.aria-busy]="loading()">
+      <h2 id="galleries-title">Galerien</h2>
+      @if (loading()) {
+        <p>Galerien werden geladen …</p>
+      } @else if (galleries().length) {
+        <ul class="gallery-grid">
+          @for (gallery of galleries(); track gallery.id) {
+            <li class="gallery-card">
+              <span class="gallery-symbol" aria-hidden="true">▧</span>
+              <h3>{{ gallery.title }}</h3>
+            </li>
+          }
+        </ul>
+      } @else if (!error()) {
+        <div class="welcome">
+          <div class="mark" aria-hidden="true">g.</div>
+          <h3>Noch keine Galerien</h3>
+          <p>
+            {{
+              auth.user()?.role === 'admin'
+                ? 'Lege deine erste Galerie mit einem Titel an.'
+                : 'Hier erscheinen Galerien, sobald sie angelegt wurden.'
+            }}
+          </p>
+        </div>
+      }
     </section>
   </main>
 </div>

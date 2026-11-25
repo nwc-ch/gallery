@@ -4,6 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from './../src/app.module.js';
 import { configureApp } from './../src/app.setup.js';
+import { DatabaseModule } from '../src/database/database.module.js';
+import { UsersModule } from '../src/users/users.module.js';
+import { TestDatabaseModule, TestUsersModule } from './auth-test.modules.js';
+import { testGalleryRepository } from './auth-test.modules.js';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Gallery } from '../src/galleries/gallery.entity.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -11,7 +17,14 @@ describe('AppController (e2e)', () => {
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideModule(DatabaseModule)
+      .useModule(TestDatabaseModule)
+      .overrideProvider(getRepositoryToken(Gallery))
+      .useValue(testGalleryRepository)
+      .overrideModule(UsersModule)
+      .useModule(TestUsersModule)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     configureApp(app);

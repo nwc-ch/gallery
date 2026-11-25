@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UserRole } from '../users/user-role.js';
 
 export class AuthUser {
   @ApiProperty({ description: 'Stabile Google-Konto-ID' })
@@ -9,6 +10,9 @@ export class AuthUser {
 
   @ApiProperty()
   name!: string;
+
+  @ApiProperty({ enum: UserRole })
+  role!: UserRole;
 }
 
 declare module 'express-session' {

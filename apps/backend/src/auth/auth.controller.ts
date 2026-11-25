@@ -22,11 +22,15 @@ import type { Request, Response } from 'express';
 import { AuthUser } from './auth.types.js';
 import { GoogleIdentityService } from './google-identity.service.js';
 import { SessionGuard } from './session.guard.js';
+import { UsersService } from '../users/users.service.js';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly google: GoogleIdentityService) {}
+  constructor(
+    private readonly google: GoogleIdentityService,
+    private readonly users: UsersService,
+  ) {}
 
   @Get('config')
   @ApiOperation({ summary: 'Verfügbarkeit der Google-Anmeldung' })
@@ -94,11 +98,11 @@ export class AuthController {
       await new Promise<void>((resolve, reject) =>
         request.session.regenerate((err) => (err ? reject(err) : resolve())),
       );
-      request.session.user = {
+      request.session.user = await this.users.saveGoogleUser({
         id: profile.sub,
         email: profile.email!,
         name: profile.name ?? profile.email!,
-      };
+      });
       await new Promise<void>((resolve, reject) =>
         request.session.save((err) => (err ? reject(err) : resolve())),
       );
