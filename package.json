@@ -1,0 +1,18 @@
+{
+  "name": "gallery",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "engines": {
+    "node": "^22.22.3 || ^24.15.0 || ^26.0.0"
+  },
+  "packageManager": "npm@11.12.1",
+  "scripts": {
+    "start:backend": "npm run start:dev --workspace=backend",
+    "start:frontend": "npm start --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspace=backend && npm run test --workspace=frontend -- --watch=false",
+    "test:e2e": "npm run test:e2e --workspace=backend",
+    "lint": "npm run lint --workspace=backend"
+  }
+}

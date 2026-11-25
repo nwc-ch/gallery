@@ -1,0 +1,62 @@
+<main class="login-page">
+  <section class="story" aria-labelledby="brand-title">
+    <a class="brand" href="/"> <span class="brand-icon" aria-hidden="true">g.</span> gallery </a>
+    <div class="story-copy">
+      <span class="eyebrow">DEIN RAUM FÜR INSPIRATION</span>
+      <h1 id="brand-title">Ein Ort für alles,<br />was dich inspiriert.</h1>
+      <p>Willkommen bei Gallery. Dein nächster Blick beginnt hier.</p>
+    </div>
+    <div class="artwork" aria-hidden="true">
+      <div class="arch"></div>
+      <div class="orb"></div>
+      <div class="tile"></div>
+      <span>Eine neue Perspektive.</span>
+    </div>
+    <div class="story-footer">Sammle Momente. Entdecke Perspektiven.</div>
+  </section>
+
+  <section class="sign-in" aria-labelledby="login-title">
+    <div class="login-card">
+      <span class="eyebrow">WILLKOMMEN BEI GALLERY</span>
+      <h2 id="login-title">Schön, dass du da bist.</h2>
+      <p>
+        Melde dich mit deinem Google-Konto an,<br class="desktop-break" />
+        um zu deinem Dashboard zu gelangen.
+      </p>
+      @if (ready()) {
+        <a class="google-button" href="/api/auth/google">
+          <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+            <path
+              fill="#4285F4"
+              d="M43.6 24.5c0-1.5-.1-2.8-.4-4.2H24v8h11a9.4 9.4 0 0 1-4.1 6.2v5.2h6.7c3.9-3.6 6-8.9 6-15.2Z"
+            />
+            <path
+              fill="#34A853"
+              d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.7-5.2c-1.8 1.2-4.1 1.9-6.8 1.9-5.3 0-9.8-3.6-11.4-8.4H5.7v5.4A20.4 20.4 0 0 0 24 44Z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M12.6 27.4a12.3 12.3 0 0 1 0-7.8v-5.4H5.7a20.1 20.1 0 0 0 0 18.6l6.9-5.4Z"
+            />
+            <path
+              fill="#EA4335"
+              d="M24 11.2c3 0 5.6 1 7.7 3l5.8-5.8A19.5 19.5 0 0 0 24 3a20.4 20.4 0 0 0-18.3 11.2l6.9 5.4C14.2 14.8 18.7 11.2 24 11.2Z"
+            />
+          </svg>
+          Mit Google anmelden
+        </a>
+      } @else {
+        <button class="google-button" disabled>
+          {{ loading() ? 'Anmeldung wird vorbereitet …' : 'Mit Google anmelden' }}
+        </button>
+      }
+      @if (error()) {
+        <p class="error-message" role="alert">{{ error() }}</p>
+      }
+      <div class="login-note">
+        <span aria-hidden="true">↗</span> Sicher anmelden mit deinem Google-Konto.
+      </div>
+    </div>
+    <footer>Deine Inspiration. Dein Gallery.</footer>
+  </section>
+</main>

@@ -1,0 +1,28 @@
+<div class="dashboard">
+  <header>
+    <a class="brand" href="/dashboard">gallery<span>.</span></a>
+    <div class="account">
+      <span>{{ auth.user()?.email }}</span
+      ><button type="button" (click)="logout()" [disabled]="busy()">
+        {{ busy() ? 'Wird abgemeldet …' : 'Abmelden' }}
+      </button>
+    </div>
+  </header>
+  <main>
+    <div class="eyebrow">DEIN ÜBERBLICK</div>
+    <h1>Willkommen, {{ auth.user()?.name }}.</h1>
+    <p class="intro">Schön, dass du hier bist. Das ist dein persönliches Dashboard.</p>
+    @if (error()) {
+      <p role="alert" class="error">{{ error() }}</p>
+    }
+    <section class="welcome" aria-labelledby="welcome-title">
+      <div class="mark" aria-hidden="true">g.</div>
+      <h2 id="welcome-title">Ein neuer Anfang.</h2>
+      <p>
+        Dein Raum für Inspiration ist bereit.<br />Hier findest du künftig deine Inhalte im
+        Überblick.
+      </p>
+      <span class="status"><span aria-hidden="true">●</span> Mit Google angemeldet</span>
+    </section>
+  </main>
+</div>

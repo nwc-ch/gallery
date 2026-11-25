@@ -1,0 +1,21 @@
+﻿* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #fcfbf8;
+  color: #293c31;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  font-family: inherit;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid #759065;
+  outline-offset: 4px;
+}
