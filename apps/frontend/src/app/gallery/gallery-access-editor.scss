@@ -1,9 +1,33 @@
 .access-editor {
-  margin: 0 0 30px;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  overflow-y: auto;
+  color: #293c31;
   padding: 26px;
   border: 1px solid #dce3d4;
   border-radius: 12px;
   background: #fcfbf8;
+}
+.access-editor::backdrop {
+  background: #142016a6;
+}
+.dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.close-button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+  color: #43553b;
+  background: transparent;
+  font-size: 20px;
+}
+.close-button:hover {
+  background: #e9edde;
 }
 .eyebrow {
   color: #7b8972;
@@ -24,24 +48,6 @@ h2 {
   line-height: 1.7;
   margin-bottom: 20px;
 }
-.search-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-.search {
-  width: 100%;
-  max-width: 450px;
-  border: 1px solid #cfd7c5;
-  border-radius: 7px;
-  background: white;
-  color: #293c31;
-  padding: 11px 13px;
-  font: inherit;
-  font-size: 13px;
-}
-.search:focus-visible,
 input[type='checkbox']:focus-visible {
   outline: 3px solid #759065;
   outline-offset: 3px;

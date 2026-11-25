@@ -11,6 +11,18 @@ describe('Album user selection', () => {
   const api = { access: vi.fn(), saveAccess: vi.fn() };
 
   beforeEach(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      }),
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.removeAttribute('open');
+      }),
+    });
     api.access.mockReset().mockResolvedValue({ users, userIds: ['alice'] });
     api.saveAccess
       .mockReset()
@@ -64,19 +76,25 @@ describe('Album user selection', () => {
     await vi.waitFor(() => expect(api.saveAccess).toHaveBeenCalledExactlyOnceWith('gallery-1', []));
   });
 
-  it('does not lose hidden selections when searching', async () => {
+  it('shows a modal with all users and no search field', async () => {
     const fixture = await render();
-    const search = fixture.nativeElement.querySelector('input[type="search"]');
-    search.value = 'BEN@';
-    search.dispatchEvent(new Event('input'));
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelectorAll('input[type="checkbox"]').length).toBe(1);
-    fixture.nativeElement.querySelector('input[type="checkbox"]').click();
-    fixture.detectChanges();
-    fixture.nativeElement.querySelector('.actions button').click();
-    await vi.waitFor(() =>
-      expect(api.saveAccess).toHaveBeenCalledExactlyOnceWith('gallery-1', ['alice', 'ben']),
-    );
+    expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalledOnce();
+    expect(fixture.nativeElement.querySelector('dialog').hasAttribute('open')).toBe(true);
+    expect(fixture.nativeElement.querySelector('input[type="search"]')).toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('input[type="checkbox"]').length).toBe(3);
+  });
+
+  it('closes with the close button or Escape without saving changes', async () => {
+    const fixture = await render();
+    const closed = vi.fn();
+    fixture.componentInstance.closed.subscribe(closed);
+    fixture.nativeElement.querySelector('.close-button').click();
+    expect(closed).toHaveBeenCalledOnce();
+    fixture.nativeElement
+      .querySelector('dialog')
+      .dispatchEvent(new Event('cancel', { cancelable: true }));
+    expect(closed).toHaveBeenCalledTimes(2);
+    expect(api.saveAccess).not.toHaveBeenCalled();
   });
 
   it('preserves the pending selection and offers retry after a save failure', async () => {

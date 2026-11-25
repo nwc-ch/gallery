@@ -40,6 +40,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected readonly progress = signal('');
   protected readonly uploadErrors = signal<string[]>([]);
   protected readonly selectedIndex = signal<number | null>(null);
+  protected readonly accessOpen = signal(false);
   protected readonly failedPreviews = signal<Set<string>>(new Set());
   private readonly width = signal(0);
   protected readonly rows = computed(() =>
@@ -74,6 +75,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
     this.gallery.set(null);
     this.images.set([]);
     this.selectedIndex.set(null);
+    this.accessOpen.set(false);
     this.progress.set('');
     this.uploadErrors.set([]);
     try {

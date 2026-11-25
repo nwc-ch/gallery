@@ -229,10 +229,13 @@ auf anderen Installationen vor dem Backend-Start `npm run migration:run` ausfüh
 
 ### Benutzerfreigaben je Album
 
-Administratoren öffnen ein Album und wählen im Abschnitt **Wer darf dieses Album
-sehen?** die gewünschten Benutzer aus. Die Liste enthält alle Konten, die sich
+Administratoren öffnen ein Album und klicken auf den **Drei-Punkte-Button** neben
+dem Albumtitel. Im modalen Dialog **Wer darf dieses Album sehen?** wählen sie die
+gewünschten Benutzer aus. Die Liste enthält alle Konten, die sich
 bereits mindestens einmal mit Google angemeldet haben, unabhängig davon, ob
-aktuell eine Sitzung aktiv ist. Sie lässt sich nach Name oder E-Mail durchsuchen.
+aktuell eine Sitzung aktiv ist. Alle Benutzer werden ohne Suchfeld angezeigt.
+Der Dialog lässt sich über den Schließen-Button oder mit Escape schließen;
+ungespeicherte Änderungen werden dabei verworfen.
 Mit **Freigaben speichern** wird die Auswahl für genau dieses Album übernommen.
 Abwählen und Speichern entzieht den Zugriff wieder. Eine leere Auswahl bedeutet,
 dass ausschließlich Administratoren Zugriff haben.

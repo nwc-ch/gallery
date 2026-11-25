@@ -5,7 +5,22 @@
   </header>
   <main>
     <div class="eyebrow">DEINE GALERIE</div>
-    <h1>{{ gallery()?.title ?? 'Galerie' }}</h1>
+    <div class="album-heading">
+      <h1>{{ gallery()?.title ?? 'Galerie' }}</h1>
+      @if (gallery() && auth.user()?.role === 'admin') {
+        <button
+          class="album-options"
+          type="button"
+          (click)="accessOpen.set(true)"
+          aria-label="Albumfreigaben öffnen"
+          aria-haspopup="dialog"
+          [attr.aria-expanded]="accessOpen()"
+          title="Albumfreigaben"
+        >
+          ⋯
+        </button>
+      }
+    </div>
     @if (loading()) {
       <p role="status" class="muted">Galerie wird geladen …</p>
     }
@@ -18,7 +33,6 @@
         ><span>Zum Vergrößern ein Bild auswählen.</span>
       </div>
       @if (auth.user()?.role === 'admin') {
-        <app-gallery-access-editor [galleryId]="gallery()!.id" />
         <section class="upload" aria-labelledby="upload-heading">
           <div>
             <h2 id="upload-heading">Bilder hinzufügen</h2>
@@ -97,6 +111,9 @@
     }
   </main>
 </div>
+@if (gallery() && auth.user()?.role === 'admin' && accessOpen()) {
+  <app-gallery-access-editor [galleryId]="gallery()!.id" (closed)="accessOpen.set(false)" />
+}
 @if (selectedIndex() !== null) {
   <app-image-lightbox
     [images]="images()"

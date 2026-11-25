@@ -1,7 +1,26 @@
-<section class="access-editor" aria-labelledby="access-heading">
-  <span class="eyebrow">ADMINISTRATION</span>
-  <h2 id="access-heading">Wer darf dieses Album sehen?</h2>
-  <p class="hint">
+<dialog
+  #dialog
+  class="access-editor"
+  aria-labelledby="access-heading"
+  aria-describedby="access-description"
+  (cancel)="cancel($event)"
+>
+  <div class="dialog-heading">
+    <div>
+      <span class="eyebrow">ADMINISTRATION</span>
+      <h2 id="access-heading">Wer darf dieses Album sehen?</h2>
+    </div>
+    <button
+      class="close-button"
+      type="button"
+      (click)="close()"
+      aria-label="Freigaben schließen"
+      autofocus
+    >
+      ✕
+    </button>
+  </div>
+  <p id="access-description" class="hint">
     Wähle aus den bereits registrierten Benutzern aus. Nur ausgewählte Benutzer sehen dieses Album
     nach dem Login. Administratoren haben immer Zugriff.
   </p>
@@ -15,17 +34,8 @@
     <button type="button" (click)="load()">Erneut laden</button>
   }
   @if (loaded()) {
-    <label for="access-search" class="search-label">Benutzer suchen</label>
-    <input
-      id="access-search"
-      class="search"
-      type="search"
-      placeholder="Name oder E-Mail-Adresse"
-      [value]="query()"
-      (input)="search($event)"
-    />
     <div class="user-list" role="group" aria-label="Benutzer mit Albumzugriff">
-      @for (user of visibleUsers(); track user.id) {
+      @for (user of users(); track user.id) {
         <label class="user-row">
           <input
             type="checkbox"
@@ -43,13 +53,7 @@
           }
         </label>
       } @empty {
-        <p class="empty">
-          {{
-            users().length
-              ? 'Keine passenden Benutzer gefunden.'
-              : 'Es sind noch keine Benutzer registriert.'
-          }}
-        </p>
+        <p class="empty">Es sind noch keine Benutzer registriert.</p>
       }
     </div>
     <div class="actions">
@@ -62,4 +66,4 @@
       <p role="status" class="success">{{ success() }}</p>
     }
   }
-</section>
+</dialog>

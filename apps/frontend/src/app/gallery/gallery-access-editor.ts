@@ -1,4 +1,16 @@
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { AuthUser } from '../auth/auth.service';
 import { GalleriesService } from '../dashboard/galleries.service';
 
@@ -7,13 +19,15 @@ import { GalleriesService } from '../dashboard/galleries.service';
   templateUrl: './gallery-access-editor.html',
   styleUrl: './gallery-access-editor.scss',
 })
-export class GalleryAccessEditor implements OnInit {
+export class GalleryAccessEditor implements OnInit, AfterViewInit, OnDestroy {
   readonly galleryId = input.required<string>();
+  readonly closed = output<void>();
+  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private previousOverflow = '';
   private readonly api = inject(GalleriesService);
   protected readonly users = signal<AuthUser[]>([]);
   protected readonly selected = signal<Set<string>>(new Set());
   private readonly saved = signal<Set<string>>(new Set());
-  protected readonly query = signal('');
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly error = signal('');
@@ -24,12 +38,25 @@ export class GalleryAccessEditor implements OnInit {
       this.selected().size !== this.saved().size ||
       [...this.selected()].some((id) => !this.saved().has(id)),
   );
-  protected readonly visibleUsers = computed(() => {
-    const query = this.query().trim().toLocaleLowerCase('de');
-    return this.users().filter((user) =>
-      `${user.name} ${user.email}`.toLocaleLowerCase('de').includes(query),
-    );
-  });
+
+  ngAfterViewInit(): void {
+    this.previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    this.dialog().nativeElement.showModal();
+  }
+
+  ngOnDestroy(): void {
+    this.dialog().nativeElement.close();
+    document.body.style.overflow = this.previousOverflow;
+  }
+
+  protected close(): void {
+    this.closed.emit();
+  }
+  protected cancel(event: Event): void {
+    event.preventDefault();
+    this.close();
+  }
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -48,9 +75,6 @@ export class GalleryAccessEditor implements OnInit {
     } finally {
       this.loading.set(false);
     }
-  }
-  protected search(event: Event): void {
-    this.query.set((event.target as HTMLInputElement).value);
   }
   protected toggle(id: string, event: Event): void {
     if (this.saving()) return;

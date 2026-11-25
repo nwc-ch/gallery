@@ -20,6 +20,18 @@ describe('Gallery preview and upload flow', () => {
   };
   const api = { get: vi.fn(), images: vi.fn(), upload: vi.fn(), access: vi.fn() };
   beforeEach(() => {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      }),
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.removeAttribute('open');
+      }),
+    });
     api.access.mockReset().mockResolvedValue({ users: [], userIds: [] });
     user.set({ id: 'user-id', email: 'test@example.invalid', name: 'Test', role: 'admin' });
     api.get.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Sommer' });
@@ -75,6 +87,24 @@ describe('Gallery preview and upload flow', () => {
     expect(fixture.nativeElement.querySelector('app-image-lightbox')).toBeNull();
   });
 
+  it('loads permissions only after clicking the three-dot button and closes the dialog', async () => {
+    const fixture = await render();
+    expect(api.access).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
+    const trigger = fixture.nativeElement.querySelector('.album-options');
+    trigger.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.access).toHaveBeenCalledExactlyOnceWith('gallery-id');
+    expect(fixture.nativeElement.querySelector('dialog')).not.toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    fixture.nativeElement.querySelector('.close-button').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('adds each uploaded image to the preview gallery', async () => {
     const fixture = await render();
     const input = fixture.nativeElement.querySelector('input[type="file"]');
@@ -94,6 +124,7 @@ describe('Gallery preview and upload flow', () => {
     expect(fixture.nativeElement.querySelector('input[type="file"]')).toBeNull();
     expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
     expect(fixture.nativeElement.querySelector('.image-tile')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.album-options')).toBeNull();
   });
 
   it('keeps uploads unavailable without R2 configuration', async () => {
