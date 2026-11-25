@@ -1,0 +1,65 @@
+<section class="access-editor" aria-labelledby="access-heading">
+  <span class="eyebrow">ADMINISTRATION</span>
+  <h2 id="access-heading">Wer darf dieses Album sehen?</h2>
+  <p class="hint">
+    Wähle aus den bereits registrierten Benutzern aus. Nur ausgewählte Benutzer sehen dieses Album
+    nach dem Login. Administratoren haben immer Zugriff.
+  </p>
+  @if (loading()) {
+    <p role="status">Benutzer werden geladen …</p>
+  }
+  @if (error()) {
+    <p role="alert" class="error">{{ error() }}</p>
+  }
+  @if (!loading() && !loaded()) {
+    <button type="button" (click)="load()">Erneut laden</button>
+  }
+  @if (loaded()) {
+    <label for="access-search" class="search-label">Benutzer suchen</label>
+    <input
+      id="access-search"
+      class="search"
+      type="search"
+      placeholder="Name oder E-Mail-Adresse"
+      [value]="query()"
+      (input)="search($event)"
+    />
+    <div class="user-list" role="group" aria-label="Benutzer mit Albumzugriff">
+      @for (user of visibleUsers(); track user.id) {
+        <label class="user-row">
+          <input
+            type="checkbox"
+            [checked]="user.role === 'admin' || selected().has(user.id)"
+            [disabled]="saving() || user.role === 'admin'"
+            (change)="toggle(user.id, $event)"
+            [attr.aria-label]="user.name + ' (' + user.email + ')'"
+          />
+          <span class="user-details"
+            ><strong>{{ user.name }}</strong
+            ><span>{{ user.email }}</span></span
+          >
+          @if (user.role === 'admin') {
+            <span class="admin-tag">Admin · immer freigegeben</span>
+          }
+        </label>
+      } @empty {
+        <p class="empty">
+          {{
+            users().length
+              ? 'Keine passenden Benutzer gefunden.'
+              : 'Es sind noch keine Benutzer registriert.'
+          }}
+        </p>
+      }
+    </div>
+    <div class="actions">
+      <span>Neue Benutzer erscheinen hier nach ihrer ersten Google-Anmeldung.</span
+      ><button type="button" (click)="save()" [disabled]="saving() || !dirty()">
+        {{ saving() ? 'Wird gespeichert …' : 'Freigaben speichern' }}
+      </button>
+    </div>
+    @if (success()) {
+      <p role="status" class="success">{{ success() }}</p>
+    }
+  }
+</section>

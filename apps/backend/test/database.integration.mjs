@@ -13,6 +13,8 @@ import { GalleriesService } from '../dist/galleries/galleries.service.js';
 import { GalleryImage } from '../dist/galleries/gallery-image.entity.js';
 import { GalleryImagesService } from '../dist/galleries/gallery-images.service.js';
 import sharp from 'sharp';
+import { GalleryAccess } from '../dist/galleries/gallery-access.entity.js';
+import { GalleryAccessService } from '../dist/galleries/gallery-access.service.js';
 
 await test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
   await dataSource.initialize();
@@ -58,6 +60,7 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     });
     const galleries = new GalleriesService(
       runner.manager.getRepository(Gallery),
+      new GalleryAccessService(runner.manager.getRepository(GalleryAccess)),
     );
     const gallery = await galleries.create('Meine Galerie', id);
     const stored = await runner.manager
@@ -97,7 +100,51 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     assert.equal(imageRow.height, 20);
     assert.deepEqual(objects.get(imageRow.originalKey), jpg);
     assert.ok(objects.has(imageRow.previewKey));
-    assert.equal((await imageService.list(gallery.id)).images[0].id, image.id);
+    const admin = { ...changed, role: UserRole.Admin };
+    assert.equal(
+      (await imageService.list(gallery.id, admin)).images[0].id,
+      image.id,
+    );
+    const viewerProfile = {
+      id: `viewer-${randomUUID()}`,
+      email: 'viewer@example.invalid',
+      name: 'Viewer',
+    };
+    const viewer = await users.saveGoogleUser(viewerProfile);
+    const access = new GalleryAccessService(
+      runner.manager.getRepository(GalleryAccess),
+    );
+    assert.equal(
+      (await galleries.list(viewer)).some((item) => item.id === gallery.id),
+      false,
+    );
+    await assert.rejects(galleries.findVisible(gallery.id, viewer));
+    await assert.rejects(imageService.list(gallery.id, viewer));
+    await access.replace(gallery.id, [viewer.id]);
+    assert.equal(
+      (await galleries.list(viewer)).some((item) => item.id === gallery.id),
+      true,
+    );
+    assert.equal(
+      (await galleries.findVisible(gallery.id, viewer)).id,
+      gallery.id,
+    );
+    assert.equal(
+      (await imageService.list(gallery.id, viewer)).images[0].id,
+      image.id,
+    );
+    await assert.rejects(access.replace(gallery.id, ['not-a-registered-user']));
+    assert.deepEqual(await access.userIds(gallery.id), [viewer.id]);
+    await access.replace(gallery.id, []);
+    await assert.rejects(galleries.findVisible(gallery.id, viewer));
+    assert.equal(
+      (await galleries.list(viewer)).some((item) => item.id === gallery.id),
+      false,
+    );
+    assert.equal(
+      (await galleries.findVisible(gallery.id, admin)).id,
+      gallery.id,
+    );
     assert.equal(await repository.countBy({ id }), 1);
     const updated = await repository.findOneByOrFail({ id });
     assert.equal(updated.createdAt.getTime(), created.createdAt.getTime());

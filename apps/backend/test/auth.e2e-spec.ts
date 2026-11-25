@@ -12,6 +12,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Gallery } from '../src/galleries/gallery.entity.js';
 import { GalleryImage } from '../src/galleries/gallery-image.entity.js';
 import { testImageRepository } from './auth-test.modules.js';
+import { GalleryAccess } from '../src/galleries/gallery-access.entity.js';
+import { testAccessRepository } from './auth-test.modules.js';
 
 describe('Google authentication', () => {
   let app: INestApplication;
@@ -38,6 +40,8 @@ describe('Google authentication', () => {
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))
       .useValue(testImageRepository)
+      .overrideProvider(getRepositoryToken(GalleryAccess))
+      .useValue(testAccessRepository)
       .overrideModule(UsersModule)
       .useModule(TestUsersModule)
       .overrideProvider(GoogleIdentityService)

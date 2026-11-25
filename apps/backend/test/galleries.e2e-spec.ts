@@ -14,6 +14,8 @@ import { testImageRepository } from './auth-test.modules.js';
 import { R2Service } from '../src/storage/r2.service.js';
 import sharp from 'sharp';
 import { Readable } from 'node:stream';
+import { GalleryAccess } from '../src/galleries/gallery-access.entity.js';
+import { testAccessRepository, testAlbumAccess } from './auth-test.modules.js';
 import {
   TestDatabaseModule,
   TestUsersModule,
@@ -24,6 +26,7 @@ import {
 describe('Gallery permissions and validation', () => {
   let app: INestApplication;
   let nonce: string;
+  let googleSubject = 'test-user';
   const galleryId = '35c499c6-f354-41ec-92f7-9d7f437bc0fd';
   const imageId = '182eac0a-bf3c-4a69-ab0e-57cbcb411373';
   const objects = new Map<string, Buffer>();
@@ -40,7 +43,7 @@ describe('Gallery permissions and validation', () => {
       return `https://accounts.google.com/auth?state=${state}`;
     },
     verify: async () => ({
-      sub: 'test-user',
+      sub: googleSubject,
       email: 'test@example.invalid',
       name: 'Test User',
       nonce,
@@ -49,7 +52,9 @@ describe('Gallery permissions and validation', () => {
 
   beforeEach(async () => {
     testUsers.clear();
+    testAlbumAccess.clear();
     vi.clearAllMocks();
+    testGalleryRepository.find.mockReset().mockResolvedValue([]);
     objects.clear();
     storage.configured = true;
     storage.put
@@ -60,12 +65,10 @@ describe('Gallery permissions and validation', () => {
     storage.remove.mockReset().mockImplementation(async (key: string) => {
       objects.delete(key);
     });
-    storage.get
-      .mockReset()
-      .mockImplementation(async (key: string) => ({
-        stream: Readable.from(objects.get(key) ?? Buffer.from('jpg')),
-        length: objects.get(key)?.length,
-      }));
+    storage.get.mockReset().mockImplementation(async (key: string) => ({
+      stream: Readable.from(objects.get(key) ?? Buffer.from('jpg')),
+      length: objects.get(key)?.length,
+    }));
     testImageRepository.find.mockReset().mockResolvedValue([]);
     testImageRepository.findOneBy.mockReset().mockResolvedValue(null);
     testImageRepository.save
@@ -89,6 +92,8 @@ describe('Gallery permissions and validation', () => {
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))
       .useValue(testImageRepository)
+      .overrideProvider(getRepositoryToken(GalleryAccess))
+      .useValue(testAccessRepository)
       .overrideProvider(R2Service)
       .useValue(storage)
       .overrideProvider(GoogleIdentityService)
@@ -103,9 +108,10 @@ describe('Gallery permissions and validation', () => {
     await app.close();
   });
 
-  async function login(role = UserRole.User) {
-    testUsers.set('test-user', {
-      id: 'test-user',
+  async function login(role = UserRole.User, userId = 'test-user') {
+    googleSubject = userId;
+    testUsers.set(userId, {
+      id: userId,
       email: 'test@example.invalid',
       name: 'Test User',
       role,
@@ -329,6 +335,7 @@ describe('Gallery permissions and validation', () => {
       .get(`/api/galleries/${galleryId}/images/${imageId}/original`)
       .expect(401);
     const agent = await login();
+    testAlbumAccess.set(galleryId, new Set(['test-user']));
     await agent
       .get(`/api/galleries/${galleryId}/images/${imageId}/original`)
       .expect(404);
@@ -341,6 +348,7 @@ describe('Gallery permissions and validation', () => {
 
   it('serves preview and original versions from the matching object only', async () => {
     const agent = await login();
+    testAlbumAccess.set(galleryId, new Set(['test-user']));
     testImageRepository.findOneBy.mockResolvedValue({
       id: imageId,
       galleryId,
@@ -362,5 +370,136 @@ describe('Gallery permissions and validation', () => {
       'preview',
       'original',
     ]);
+  });
+
+  it('offers registered users and permissions only to admins', async () => {
+    const admin = await login(UserRole.Admin, 'admin-user');
+    const viewer = await login(UserRole.User, 'viewer-user');
+    const response = await admin
+      .get(`/api/galleries/${galleryId}/access`)
+      .expect(200);
+    expect(
+      response.body.users.map((user: { id: string }) => user.id).sort(),
+    ).toEqual(['admin-user', 'viewer-user']);
+    expect(response.body.userIds).toEqual([]);
+    await viewer.get(`/api/galleries/${galleryId}/access`).expect(403);
+    await viewer
+      .put(`/api/galleries/${galleryId}/access`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ userIds: ['viewer-user'] })
+      .expect(403);
+    await request(app.getHttpServer())
+      .get(`/api/galleries/${galleryId}/access`)
+      .expect(401);
+  });
+
+  it('requires the same-origin header to change access', async () => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .put(`/api/galleries/${galleryId}/access`)
+      .send({ userIds: [] })
+      .expect(403);
+    expect(testAccessRepository.manager.transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps unshared albums and all image routes hidden from logged-in users', async () => {
+    const viewer = await login();
+    testGalleryRepository.find.mockResolvedValue([
+      { id: galleryId, title: 'Privat' },
+    ]);
+    const overview = await viewer.get('/api/galleries').expect(200);
+    expect(overview.body).toEqual([]);
+    for (const path of [
+      `/api/galleries/${galleryId}`,
+      `/api/galleries/${galleryId}/images`,
+      `/api/galleries/${galleryId}/images/${imageId}/preview`,
+      `/api/galleries/${galleryId}/images/${imageId}/original`,
+    ]) {
+      await viewer.get(path).expect(404);
+    }
+    expect(storage.get).not.toHaveBeenCalled();
+    expect(testImageRepository.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('grants and revokes access per album without requiring the user to log in again', async () => {
+    const admin = await login(UserRole.Admin, 'admin-user');
+    const viewer = await login(UserRole.User, 'viewer-user');
+    const otherGalleryId = '91399920-5ebf-4a0d-b57b-4e964a1b59cf';
+    testGalleryRepository.find.mockResolvedValue([
+      { id: galleryId, title: 'Geteilt' },
+      { id: otherGalleryId, title: 'Privat' },
+    ]);
+    await admin
+      .put(`/api/galleries/${galleryId}/access`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ userIds: ['viewer-user'] })
+      .expect(200);
+    const overview = await viewer.get('/api/galleries').expect(200);
+    expect(overview.body.map((gallery: { id: string }) => gallery.id)).toEqual([
+      galleryId,
+    ]);
+    await viewer.get(`/api/galleries/${galleryId}`).expect(200);
+    await viewer.get(`/api/galleries/${galleryId}/images`).expect(200);
+    await viewer.get(`/api/galleries/${otherGalleryId}`).expect(404);
+    testImageRepository.findOneBy.mockResolvedValue({
+      id: imageId,
+      galleryId,
+      originalKey: 'original',
+      previewKey: 'preview',
+    } as never);
+    await viewer
+      .get(`/api/galleries/${galleryId}/images/${imageId}/original`)
+      .expect(200)
+      .expect('Cache-Control', 'private, no-store');
+    await viewer
+      .get(`/api/galleries/${galleryId}/images/${imageId}/preview`)
+      .expect(200)
+      .expect('Cache-Control', 'private, no-store');
+    storage.get.mockClear();
+    await admin
+      .put(`/api/galleries/${galleryId}/access`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ userIds: [] })
+      .expect(200);
+    expect((await viewer.get('/api/galleries').expect(200)).body).toEqual([]);
+    for (const path of [
+      `/api/galleries/${galleryId}`,
+      `/api/galleries/${galleryId}/images`,
+      `/api/galleries/${galleryId}/images/${imageId}/preview`,
+      `/api/galleries/${galleryId}/images/${imageId}/original`,
+    ]) {
+      await viewer.get(path).expect(404);
+    }
+    expect(storage.get).not.toHaveBeenCalled();
+    await admin.get(`/api/galleries/${galleryId}`).expect(200);
+    expect((await admin.get('/api/galleries').expect(200)).body.length).toBe(2);
+  });
+
+  it('refuses unknown users without deleting existing permissions', async () => {
+    const admin = await login(UserRole.Admin, 'admin-user');
+    await login(UserRole.User, 'viewer-user');
+    testAlbumAccess.set(galleryId, new Set(['viewer-user']));
+    await admin
+      .put(`/api/galleries/${galleryId}/access`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ userIds: ['unknown-user'] })
+      .expect(400);
+    expect(testAlbumAccess.get(galleryId)).toEqual(new Set(['viewer-user']));
+  });
+
+  it.each([
+    { userIds: ['duplicate', 'duplicate'] },
+    { userIds: 'user' },
+    { userIds: [42] },
+    { userIds: [], role: 'admin' },
+    {},
+  ])('validates access input %j', async (body) => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .put(`/api/galleries/${galleryId}/access`)
+      .set('X-Requested-With', 'Gallery')
+      .send(body)
+      .expect(400);
+    expect(testAccessRepository.manager.transaction).not.toHaveBeenCalled();
   });
 });

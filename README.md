@@ -178,7 +178,7 @@ Netzwerkzugriff werden erst beim tatsächlichen Upload geprüft.
   fehlt Zurück, am letzten Weiter; es gibt keinen Umlauf. **Esc** oder die
   Schließen-Schaltfläche beendet die Ansicht. Navigation setzt den Zoom zurück.
 
-API (Anmeldung erforderlich):
+API (Anmeldung und Albumfreigabe erforderlich; Administratoren haben immer Zugriff):
 
 - `GET /api/galleries/:id`: Galerie laden.
 - `GET /api/galleries/:galleryId/images`: Bilder und Verfügbarkeit des Uploads.
@@ -202,7 +202,8 @@ R2-Upload erfordert die oben genannten Zugangsdaten.
 Neue und bestehende Benutzer erhalten zunächst die Rolle `user`. Administratoren
 haben die Rolle `admin` und können im Dashboard Galerien mit einem Titel anlegen.
 Titel sind erforderlich, werden am Rand von Leerzeichen bereinigt und dürfen
-höchstens 160 Zeichen lang sein. Alle angemeldeten Benutzer sehen die Galerien.
+höchstens 160 Zeichen lang sein. Normale Benutzer sehen nur explizit für sie
+freigegebene Galerien; Administratoren sehen alle Galerien.
 Galerien und ihre Ersteller werden in MariaDB gespeichert.
 
 Nach der ersten Google-Anmeldung kann ein bestimmtes Konto lokal zum Admin
@@ -220,11 +221,47 @@ den Benutzer einschließlich Rolle aus der Datenbank neu; Änderungen gelten
 daher auch für laufende Sitzungen. Nach einer Rollenzuweisung das Dashboard
 neu laden, damit das Formular erscheint.
 
-Die API bietet `GET /api/galleries` für angemeldete Benutzer sowie
+Die API bietet `GET /api/galleries` als gefilterte Übersicht für angemeldete Benutzer sowie
 `POST /api/galleries` mit `{ "title": "Meine Galerie" }` nur für Administratoren.
 Schreibende Anfragen benötigen zusätzlich den Header `X-Requested-With: Gallery`.
 Die neue TypeORM-Migration ergänzt die Rolle und die Tabelle `galleries`;
 auf anderen Installationen vor dem Backend-Start `npm run migration:run` ausführen.
+
+### Benutzerfreigaben je Album
+
+Administratoren öffnen ein Album und wählen im Abschnitt **Wer darf dieses Album
+sehen?** die gewünschten Benutzer aus. Die Liste enthält alle Konten, die sich
+bereits mindestens einmal mit Google angemeldet haben, unabhängig davon, ob
+aktuell eine Sitzung aktiv ist. Sie lässt sich nach Name oder E-Mail durchsuchen.
+Mit **Freigaben speichern** wird die Auswahl für genau dieses Album übernommen.
+Abwählen und Speichern entzieht den Zugriff wieder. Eine leere Auswahl bedeutet,
+dass ausschließlich Administratoren Zugriff haben.
+
+Administratoren behalten unabhängig von der Auswahl Zugriff auf alle Alben.
+Diese Konten sind in der Liste entsprechend markiert und nicht abwählbar.
+Neue Benutzer erhalten keine automatische Freigabe. Auch bestehende Alben sind
+nach der Migration für normale Benutzer zunächst nicht freigegeben; ein Admin
+muss die gewünschten Konten auswählen.
+
+Freigaben liegen in `gallery_access` mit eindeutiger Kombination aus Album und
+Benutzer. Änderungen werden als Transaktion gespeichert und prüfen, dass alle
+ausgewählten Benutzer existieren. Die TypeORM-Migration `AddGalleryAccess` legt
+die Tabelle und ihre Fremdschlüssel an.
+
+Die Prüfung erfolgt im Backend bei jeder Anfrage: Albumübersicht, Albumdetails,
+Bildliste, Vorschauen und Originale. Nicht freigegebene Alben erscheinen nicht in
+der Übersicht; direkte Zugriffe liefern `404`. Die Benutzerliste und das Ändern
+der Freigaben sind nur für Administratoren verfügbar:
+
+- `GET /api/galleries/:id/access`: registrierte Benutzer und gespeicherte Auswahl.
+- `PUT /api/galleries/:id/access`: Auswahl durch `{ "userIds": ["GOOGLE_ID"] }`
+  ersetzen. Der Header `X-Requested-With: Gallery` ist erforderlich.
+- `{ "userIds": [] }` entfernt alle expliziten Benutzerfreigaben dieses Albums.
+
+Ein Entzug gilt für neue Anfragen sofort, auch bei laufenden Sitzungen. Neue
+Bildantworten verwenden `Cache-Control: private, no-store`, damit der Browser
+die Zugriffsprüfung nicht durch seinen HTTP-Cache umgeht. Bereits heruntergeladene
+oder aktuell angezeigte Bilddaten können nicht rückwirkend entzogen werden.
 
 ## Google-Anmeldung
 

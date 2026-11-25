@@ -18,6 +18,7 @@
         ><span>Zum Vergrößern ein Bild auswählen.</span>
       </div>
       @if (auth.user()?.role === 'admin') {
+        <app-gallery-access-editor [galleryId]="gallery()!.id" />
         <section class="upload" aria-labelledby="upload-heading">
           <div>
             <h2 id="upload-heading">Bilder hinzufügen</h2>

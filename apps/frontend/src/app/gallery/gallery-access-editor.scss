@@ -1,0 +1,157 @@
+.access-editor {
+  margin: 0 0 30px;
+  padding: 26px;
+  border: 1px solid #dce3d4;
+  border-radius: 12px;
+  background: #fcfbf8;
+}
+.eyebrow {
+  color: #7b8972;
+  letter-spacing: 1.8px;
+  font-size: 10px;
+  font-weight: 700;
+}
+h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 9px 0 12px;
+  color: #293c31;
+}
+.hint {
+  max-width: 820px;
+  color: #697762;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.search-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+.search {
+  width: 100%;
+  max-width: 450px;
+  border: 1px solid #cfd7c5;
+  border-radius: 7px;
+  background: white;
+  color: #293c31;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 13px;
+}
+.search:focus-visible,
+input[type='checkbox']:focus-visible {
+  outline: 3px solid #759065;
+  outline-offset: 3px;
+}
+.user-list {
+  margin-top: 18px;
+  border: 1px solid #e3e8dc;
+  border-radius: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e9ece3;
+  cursor: pointer;
+}
+.user-row:last-child {
+  border-bottom: 0;
+}
+.user-row:has(input:disabled) {
+  cursor: default;
+}
+.user-row:has(input:checked) {
+  background: #f0f4e9;
+}
+input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #45613b;
+}
+.user-details {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.user-details strong {
+  font-weight: 500;
+  font-size: 14px;
+}
+.user-details > span {
+  color: #78816f;
+  font-size: 12px;
+}
+.admin-tag {
+  margin-left: auto;
+  font-size: 11px;
+  color: #698059;
+  text-align: right;
+}
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+.actions > span {
+  font-size: 11px;
+  color: #78816f;
+  line-height: 1.6;
+}
+button {
+  background: #354b36;
+  color: white;
+  border: 0;
+  border-radius: 7px;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+button:hover {
+  background: #253c26;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.error {
+  color: #a13d2d;
+  font-size: 13px;
+}
+.success {
+  color: #45613b;
+  font-size: 13px;
+  margin-bottom: 0;
+}
+.empty {
+  margin: 0;
+  padding: 20px;
+  color: #78816f;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .access-editor {
+    padding: 20px;
+  }
+  .actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-tag {
+    max-width: 95px;
+  }
+}

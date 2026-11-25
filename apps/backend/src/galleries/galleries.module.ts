@@ -9,14 +9,21 @@ import { GalleryImage } from './gallery-image.entity.js';
 import { GalleryImagesController } from './gallery-images.controller.js';
 import { GalleryImagesService } from './gallery-images.service.js';
 import { R2Service } from '../storage/r2.service.js';
+import { GalleryAccess } from './gallery-access.entity.js';
+import { GalleryAccessService } from './gallery-access.service.js';
 
 @Module({
   imports: [
     AuthModule,
     UsersModule,
-    TypeOrmModule.forFeature([Gallery, GalleryImage]),
+    TypeOrmModule.forFeature([Gallery, GalleryImage, GalleryAccess]),
   ],
   controllers: [GalleriesController, GalleryImagesController],
-  providers: [GalleriesService, GalleryImagesService, R2Service],
+  providers: [
+    GalleriesService,
+    GalleryImagesService,
+    R2Service,
+    GalleryAccessService,
+  ],
 })
 export class GalleriesModule {}

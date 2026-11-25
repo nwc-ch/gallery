@@ -18,8 +18,9 @@ describe('Gallery preview and upload flow', () => {
     originalUrl: '/original.jpg',
     createdAt: '',
   };
-  const api = { get: vi.fn(), images: vi.fn(), upload: vi.fn() };
+  const api = { get: vi.fn(), images: vi.fn(), upload: vi.fn(), access: vi.fn() };
   beforeEach(() => {
+    api.access.mockReset().mockResolvedValue({ users: [], userIds: [] });
     user.set({ id: 'user-id', email: 'test@example.invalid', name: 'Test', role: 'admin' });
     api.get.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Sommer' });
     api.images.mockReset().mockResolvedValue({ images: [image], uploadAvailable: true });
@@ -91,6 +92,7 @@ describe('Gallery preview and upload flow', () => {
     user.update((value) => ({ ...value!, role: 'user' }));
     const fixture = await render();
     expect(fixture.nativeElement.querySelector('input[type="file"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
     expect(fixture.nativeElement.querySelector('.image-tile')).not.toBeNull();
   });
 

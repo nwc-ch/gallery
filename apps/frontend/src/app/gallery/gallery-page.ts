@@ -16,10 +16,11 @@ import { AuthService } from '../auth/auth.service';
 import { GalleriesService, Gallery, GalleryImage } from '../dashboard/galleries.service';
 import { justifiedLayout } from './justified-layout';
 import { ImageLightbox } from './image-lightbox';
+import { GalleryAccessEditor } from './gallery-access-editor';
 
 @Component({
   selector: 'app-gallery-page',
-  imports: [RouterLink, ImageLightbox],
+  imports: [RouterLink, ImageLightbox, GalleryAccessEditor],
   templateUrl: './gallery-page.html',
   styleUrl: './gallery-page.scss',
 })
@@ -89,7 +90,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
       }
       this.error.set(
         error instanceof HttpErrorResponse && error.status === 404
-          ? 'Diese Galerie wurde nicht gefunden.'
+          ? 'Dieses Album wurde nicht gefunden oder ist nicht für dich freigegeben.'
           : 'Die Galerie konnte nicht geladen werden. Bitte lade die Seite erneut.',
       );
     } finally {

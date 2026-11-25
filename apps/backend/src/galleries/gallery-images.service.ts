@@ -14,6 +14,7 @@ import { GalleryImage } from './gallery-image.entity.js';
 import { GalleryImageDto, GalleryImagesDto } from './gallery-image.dto.js';
 import { GalleriesService } from './galleries.service.js';
 import { R2Service } from '../storage/r2.service.js';
+import type { AuthUser } from '../auth/auth.types.js';
 
 export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 
@@ -41,8 +42,8 @@ export class GalleryImagesService {
     };
   }
 
-  async list(galleryId: string): Promise<GalleryImagesDto> {
-    await this.galleries.findOne(galleryId);
+  async list(galleryId: string, user: AuthUser): Promise<GalleryImagesDto> {
+    await this.galleries.findVisible(galleryId, user);
     const images = await this.images.find({
       where: { galleryId },
       order: { createdAt: 'ASC', id: 'ASC' },
@@ -140,7 +141,9 @@ export class GalleryImagesService {
     galleryId: string,
     imageId: string,
     version: 'preview' | 'original',
+    user: AuthUser,
   ) {
+    await this.galleries.findVisible(galleryId, user);
     const image = await this.images.findOneBy({ id: imageId, galleryId });
     if (!image) throw new NotFoundException('Bild nicht gefunden.');
     return this.storage.get(

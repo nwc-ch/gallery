@@ -12,6 +12,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Gallery } from '../src/galleries/gallery.entity.js';
 import { GalleryImage } from '../src/galleries/gallery-image.entity.js';
 import { testImageRepository } from './auth-test.modules.js';
+import { GalleryAccess } from '../src/galleries/gallery-access.entity.js';
+import { testAccessRepository } from './auth-test.modules.js';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -26,6 +28,8 @@ describe('AppController (e2e)', () => {
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))
       .useValue(testImageRepository)
+      .overrideProvider(getRepositoryToken(GalleryAccess))
+      .useValue(testAccessRepository)
       .overrideModule(UsersModule)
       .useModule(TestUsersModule)
       .compile();

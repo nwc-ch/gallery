@@ -31,6 +31,13 @@ export class UsersService {
     return user ? this.toAuthUser(user) : null;
   }
 
+  async listRegistered(): Promise<AuthUser[]> {
+    const users = await this.users.find({
+      order: { name: 'ASC', email: 'ASC', id: 'ASC' },
+    });
+    return users.map((user) => this.toAuthUser(user));
+  }
+
   private toAuthUser(user: User): AuthUser {
     return { id: user.id, email: user.email, name: user.name, role: user.role };
   }

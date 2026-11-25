@@ -1,6 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { AuthUser } from '../auth/auth.service';
+
+export interface GalleryAccess {
+  users: AuthUser[];
+  userIds: string[];
+}
 
 export interface Gallery {
   id: string;
@@ -27,6 +33,21 @@ export interface GalleryImages {
 
 @Injectable({ providedIn: 'root' })
 export class GalleriesService {
+  access(id: string): Promise<GalleryAccess> {
+    return firstValueFrom(
+      this.http.get<GalleryAccess>(`/api/galleries/${encodeURIComponent(id)}/access`),
+    );
+  }
+
+  saveAccess(id: string, userIds: string[]): Promise<{ userIds: string[] }> {
+    return firstValueFrom(
+      this.http.put<{ userIds: string[] }>(
+        `/api/galleries/${encodeURIComponent(id)}/access`,
+        { userIds },
+        { headers: { 'X-Requested-With': 'Gallery' } },
+      ),
+    );
+  }
   private readonly http = inject(HttpClient);
 
   list(): Promise<Gallery[]> {

@@ -4,6 +4,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Req,
   Res,
   StreamableFile,
   UploadedFile,
@@ -25,7 +26,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { SessionGuard } from '../auth/session.guard.js';
 import { AdminGuard } from '../auth/admin.guard.js';
 import { SameOriginGuard } from '../auth/same-origin.guard.js';
@@ -49,10 +50,11 @@ export class GalleryImagesController {
   @ApiOkResponse({ type: GalleryImagesDto })
   list(
     @Param('galleryId', ParseUUIDPipe) galleryId: string,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    return this.images.list(galleryId);
+    return this.images.list(galleryId, request.session.user!);
   }
 
   @Post()
@@ -93,9 +95,10 @@ export class GalleryImagesController {
   async preview(
     @Param('galleryId', ParseUUIDPipe) galleryId: string,
     @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.stream(galleryId, imageId, 'preview', response);
+    return this.stream(galleryId, imageId, 'preview', response, request);
   }
 
   @Get(':imageId/original')
@@ -106,9 +109,10 @@ export class GalleryImagesController {
   async original(
     @Param('galleryId', ParseUUIDPipe) galleryId: string,
     @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.stream(galleryId, imageId, 'original', response);
+    return this.stream(galleryId, imageId, 'original', response, request);
   }
 
   private async stream(
@@ -116,9 +120,15 @@ export class GalleryImagesController {
     imageId: string,
     version: 'preview' | 'original',
     response: Response,
+    request: Request,
   ) {
-    const object = await this.images.read(galleryId, imageId, version);
-    response.setHeader('Cache-Control', 'private, max-age=300');
+    response.setHeader('Cache-Control', 'private, no-store');
+    const object = await this.images.read(
+      galleryId,
+      imageId,
+      version,
+      request.session.user!,
+    );
     response.setHeader('X-Content-Type-Options', 'nosniff');
     return new StreamableFile(object.stream, {
       type: 'image/jpeg',

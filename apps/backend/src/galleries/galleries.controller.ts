@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Req,
   Res,
   UseGuards,
@@ -27,6 +28,13 @@ import { AdminGuard } from '../auth/admin.guard.js';
 import { GalleriesService } from './galleries.service.js';
 import { Gallery } from './gallery.entity.js';
 import { CreateGalleryDto } from './create-gallery.dto.js';
+import { GalleryAccessService } from './gallery-access.service.js';
+import {
+  GalleryAccessDto,
+  UpdateGalleryAccessDto,
+} from './gallery-access.dto.js';
+import { UsersService } from '../users/users.service.js';
+import { SameOriginGuard } from '../auth/same-origin.guard.js';
 
 @ApiTags('Galleries')
 @ApiCookieAuth()
@@ -34,14 +42,21 @@ import { CreateGalleryDto } from './create-gallery.dto.js';
 @UseGuards(SessionGuard)
 @Controller('galleries')
 export class GalleriesController {
-  constructor(private readonly galleries: GalleriesService) {}
+  constructor(
+    private readonly galleries: GalleriesService,
+    private readonly access: GalleryAccessService,
+    private readonly users: UsersService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Galerien für angemeldete Benutzer auflisten' })
   @ApiOkResponse({ type: Gallery, isArray: true })
-  list(@Res({ passthrough: true }) response: Response) {
+  list(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     response.setHeader('Cache-Control', 'no-store');
-    return this.galleries.list();
+    return this.galleries.list(request.session.user!);
   }
 
   @Get(':id')
@@ -49,10 +64,53 @@ export class GalleriesController {
   @ApiOkResponse({ type: Gallery })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'no-store');
-    return this.galleries.findOne(id);
+    return this.galleries.findVisible(id, request.session.user!);
+  }
+
+  @Get(':id/access')
+  @UseGuards(AdminGuard)
+  @ApiOperation({
+    summary: 'Registrierte Benutzer und Albumfreigaben laden (nur Admin)',
+  })
+  @ApiOkResponse({ type: GalleryAccessDto })
+  @ApiForbiddenResponse()
+  async getAccess(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<GalleryAccessDto> {
+    response.setHeader('Cache-Control', 'no-store');
+    await this.galleries.findOne(id);
+    const [users, userIds] = await Promise.all([
+      this.users.listRegistered(),
+      this.access.userIds(id),
+    ]);
+    return { users, userIds };
+  }
+
+  @Put(':id/access')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @ApiOperation({ summary: 'Albumfreigaben ersetzen (nur Admin)' })
+  @ApiOkResponse({ type: UpdateGalleryAccessDto })
+  @ApiBadRequestResponse()
+  @ApiForbiddenResponse()
+  async setAccess(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    body: UpdateGalleryAccessDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<UpdateGalleryAccessDto> {
+    response.setHeader('Cache-Control', 'no-store');
+    return { userIds: await this.access.replace(id, body.userIds) };
   }
 
   @Post()
