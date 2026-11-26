@@ -18,7 +18,14 @@ describe('Gallery preview and upload flow', () => {
     originalUrl: '/original.jpg',
     createdAt: '',
   };
-  const api = { get: vi.fn(), images: vi.fn(), upload: vi.fn(), access: vi.fn() };
+  const api = {
+    get: vi.fn(),
+    images: vi.fn(),
+    upload: vi.fn(),
+    access: vi.fn(),
+    rename: vi.fn(),
+    remove: vi.fn(),
+  };
   beforeEach(() => {
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
       configurable: true,
@@ -33,6 +40,8 @@ describe('Gallery preview and upload flow', () => {
       }),
     });
     api.access.mockReset().mockResolvedValue({ users: [], userIds: [] });
+    api.rename.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Neuer Albumtitel' });
+    api.remove.mockReset().mockResolvedValue(undefined);
     user.set({ id: 'user-id', email: 'test@example.invalid', name: 'Test', role: 'admin' });
     api.get.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Sommer' });
     api.images.mockReset().mockResolvedValue({ images: [image], uploadAvailable: true });
@@ -105,11 +114,14 @@ describe('Gallery preview and upload flow', () => {
     const trigger = fixture.nativeElement.querySelector('.album-options');
     trigger.click();
     fixture.detectChanges();
+    expect(api.access).not.toHaveBeenCalled();
+    fixture.nativeElement.querySelector('.manage-access').click();
+    fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
     expect(api.access).toHaveBeenCalledExactlyOnceWith('gallery-id');
     expect(fixture.nativeElement.querySelector('dialog')).not.toBeNull();
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
     fixture.nativeElement.querySelector('.close-button').click();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
@@ -127,6 +139,45 @@ describe('Gallery preview and upload flow', () => {
     expect(api.upload).toHaveBeenCalledExactlyOnceWith('gallery-id', file);
     expect(fixture.nativeElement.querySelectorAll('.image-tile').length).toBe(2);
     expect(fixture.nativeElement.querySelector('[role="status"]').textContent).toContain('1 von 1');
+  });
+
+  it('updates the title after saving it through the album actions', async () => {
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.album-options').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.manage-title').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const input = fixture.nativeElement.querySelector('.management-dialog input[type="text"]');
+    input.value = 'Neuer Albumtitel';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    fixture.nativeElement
+      .querySelector('.management-dialog form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('h1').textContent).toBe('Neuer Albumtitel');
+    });
+    expect(fixture.nativeElement.querySelector('app-gallery-management-dialog')).toBeNull();
+  });
+
+  it('returns to the dashboard after confirming album deletion', async () => {
+    const fixture = await render();
+    const router = TestBed.inject((await import('@angular/router')).Router);
+    const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    fixture.nativeElement.querySelector('.album-options').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.manage-delete').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.nativeElement.querySelector('.management-dialog input[type="checkbox"]').click();
+    fixture.detectChanges();
+    fixture.nativeElement
+      .querySelector('.management-dialog form')
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard'));
+    expect(api.remove).toHaveBeenCalledExactlyOnceWith('gallery-id');
   });
 
   it('does not offer upload controls to ordinary users', async () => {

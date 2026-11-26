@@ -1,0 +1,129 @@
+.management-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 26px;
+  overflow-y: auto;
+  border: 1px solid #dce3d4;
+  border-radius: 12px;
+  background: #fcfbf8;
+  color: #293c31;
+}
+.management-dialog::backdrop {
+  background: #142016a6;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.eyebrow {
+  color: #7b8972;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+}
+h2 {
+  font-size: 23px;
+  font-weight: 500;
+  margin: 10px 0 24px;
+}
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+input[type='text'] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cfd7c5;
+  border-radius: 7px;
+  font: inherit;
+  color: inherit;
+  background: white;
+}
+input:focus-visible {
+  outline: 3px solid #759065;
+  outline-offset: 3px;
+}
+p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #6d7965;
+}
+.delete-warning {
+  color: #7e352a;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.confirm {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #faeee8;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #a03e2f;
+  margin: 1px 0 0;
+}
+footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+button {
+  border: 0;
+  border-radius: 7px;
+  background: #354b36;
+  color: white;
+  padding: 12px 18px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.secondary {
+  background: transparent;
+  color: #43553b;
+  border: 1px solid #d2dbc9;
+}
+.close {
+  background: transparent;
+  color: #43553b;
+  font-size: 20px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+}
+.danger {
+  background: #a03e2f;
+}
+.error {
+  color: #a13d2d;
+}
+.progress {
+  color: #45613b;
+}
+@media (max-width: 600px) {
+  .management-dialog {
+    padding: 20px;
+  }
+  footer {
+    flex-direction: column-reverse;
+  }
+}

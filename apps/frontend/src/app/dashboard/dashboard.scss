@@ -103,39 +103,49 @@ h2 {
   color: #747f6d;
   line-height: 1.8;
 }
-.status {
-  margin-top: 20px;
-  border-radius: 20px;
-  padding: 8px 13px;
-  font-size: 11px;
-  background: #eaf1e4;
-  color: #536d40;
-}
-.status span {
-  margin-right: 5px;
-  font-size: 8px;
-}
 .error {
   color: #a13d2d;
 }
 .create-gallery {
-  margin-top: 40px;
+  width: min(480px, calc(100vw - 40px));
+  max-height: calc(100dvh - 40px);
+  box-sizing: border-box;
+  color: #293c31;
   padding: 28px;
   border: 1px solid #e1e5d8;
   border-radius: 14px;
   background: #fcfbf8;
 }
-.create-gallery h2 {
-  margin: 14px 0 8px;
+.create-gallery::backdrop {
+  background: #18251dc0;
+}
+.dialog-heading,
+.gallery-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.dialog-heading h2,
+.gallery-heading h2 {
+  margin: 0;
+}
+.close-dialog,
+.add-album {
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+.close-dialog {
+  font-size: 24px;
 }
 .create-gallery p,
 .gallery-section > p {
   font-size: 14px;
   color: #737d6d;
-}
-.create-gallery .status {
-  margin: 0;
-  display: inline-block;
 }
 label {
   display: block;
@@ -143,12 +153,16 @@ label {
   font-size: 13px;
   font-weight: 600;
 }
-.form-row {
+.dialog-actions {
   display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 24px;
   gap: 12px;
 }
 input {
-  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   padding: 13px 14px;
   border: 1px solid #cfd7c5;
@@ -161,15 +175,15 @@ input:focus-visible {
   outline: 3px solid #759065;
   outline-offset: 2px;
 }
-.form-row button {
+.primary {
   background: #354b36;
   color: white;
   padding: 12px 20px;
 }
-.form-row button:hover {
+.primary:hover {
   background: #253c26;
 }
-.create-gallery .success {
+.success {
   color: #3f6532;
 }
 .gallery-section {
@@ -185,8 +199,8 @@ input:focus-visible {
 .gallery-card {
   position: relative;
   border: 1px solid #e1e5d8;
-  border-radius: 12px;
-  padding: 28px;
+  border-radius: 6px;
+  overflow: hidden;
   background: #fcfbf8;
   overflow-wrap: anywhere;
 }
@@ -198,7 +212,11 @@ input:focus-visible {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 12px;
+  border-radius: 6px;
+}
+.gallery-card h3 {
+  margin: 0;
+  padding: 24px 28px;
 }
 .gallery-card:has(a:hover) {
   border-color: #879b77;
@@ -208,7 +226,6 @@ input:focus-visible {
   display: grid;
   place-items: center;
   aspect-ratio: 3 / 2;
-  border-radius: 8px;
   background: #e9edde;
   color: #7b8972;
   font-size: 42px;
@@ -217,7 +234,6 @@ input:focus-visible {
   position: relative;
   width: 100%;
   aspect-ratio: 3 / 2;
-  border-radius: 8px;
   overflow: hidden;
   background: #e9edde;
 }
@@ -231,9 +247,6 @@ h3 {
   font-weight: 500;
 }
 @media (max-width: 600px) {
-  .form-row {
-    flex-direction: column;
-  }
   .create-gallery {
     padding: 22px;
   }

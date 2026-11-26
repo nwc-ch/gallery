@@ -38,12 +38,10 @@ export class GalleryAccessService {
 
   async replace(galleryId: string, userIds: string[]): Promise<string[]> {
     return this.access.manager.transaction(async (manager) => {
-      const gallery = await manager
-        .getRepository(Gallery)
-        .findOne({
-          where: { id: galleryId },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const gallery = await manager.getRepository(Gallery).findOne({
+        where: { id: galleryId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!gallery) throw new NotFoundException('Album nicht gefunden.');
       if (
         userIds.length &&

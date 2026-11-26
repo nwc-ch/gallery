@@ -35,6 +35,7 @@ describe('Gallery permissions and validation', () => {
     put: vi.fn(),
     remove: vi.fn(),
     get: vi.fn(),
+    removeAlbumObjects: vi.fn(),
   };
   const google = {
     configured: true,
@@ -58,6 +59,13 @@ describe('Gallery permissions and validation', () => {
     testGalleryRepository.update.mockReset().mockResolvedValue({ affected: 1 });
     objects.clear();
     storage.configured = true;
+    storage.removeAlbumObjects
+      .mockReset()
+      .mockImplementation(async (id: string) => {
+        for (const key of objects.keys())
+          if (key.startsWith(`galleries/${id}/`)) objects.delete(key);
+      });
+    testImageRepository.countBy.mockReset().mockResolvedValue(0);
     storage.put
       .mockReset()
       .mockImplementation(async (key: string, data: Buffer) => {
@@ -471,6 +479,143 @@ describe('Gallery permissions and validation', () => {
         .expect(400);
     }
     expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('limits renaming and deleting to admins with the same-origin header', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/galleries/${galleryId}`)
+      .send({ title: 'Neu' })
+      .expect(401);
+    await request(app.getHttpServer())
+      .delete(`/api/galleries/${galleryId}`)
+      .expect(401);
+    const viewer = await login();
+    await viewer
+      .patch(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ title: 'Neu' })
+      .expect(403);
+    await viewer
+      .delete(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(403);
+    const admin = await login(UserRole.Admin);
+    await admin
+      .patch(`/api/galleries/${galleryId}`)
+      .send({ title: 'Neu' })
+      .expect(403);
+    await admin.delete(`/api/galleries/${galleryId}`).expect(403);
+    expect(storage.removeAlbumObjects).not.toHaveBeenCalled();
+    expect(testGalleryRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('updates and trims the album title', async () => {
+    const admin = await login(UserRole.Admin);
+    const response = await admin
+      .patch(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ title: '  Neuer Titel  ' })
+      .expect(200);
+    expect(response.body.title).toBe('Neuer Titel');
+    expect(testGalleryRepository.update).toHaveBeenCalledWith(
+      { id: galleryId },
+      { title: 'Neuer Titel' },
+    );
+    expect(storage.removeAlbumObjects).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { title: '   ' },
+    { title: 'x'.repeat(161) },
+    { title: 42 },
+    { title: 'Neu', role: 'admin' },
+  ])('rejects invalid rename input %j', async (body) => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .patch(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .send(body)
+      .expect(400);
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('removes all album objects, cover references, images and permissions', async () => {
+    const admin = await login(UserRole.Admin);
+    objects.set(
+      `galleries/${galleryId}/photo/original.jpg`,
+      Buffer.from('original'),
+    );
+    objects.set(
+      `galleries/${galleryId}/photo/preview.jpg`,
+      Buffer.from('preview'),
+    );
+    objects.set('galleries/other-album/photo.jpg', Buffer.from('other'));
+    await admin
+      .delete(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(204);
+    expect(storage.removeAlbumObjects).toHaveBeenCalledExactlyOnceWith(
+      galleryId,
+    );
+    expect(objects.size).toBe(1);
+    expect(testGalleryRepository.update).toHaveBeenCalledWith(
+      { id: galleryId },
+      { coverImageId: null, coverCrop: null },
+    );
+    expect(testImageRepository.delete).toHaveBeenCalledWith({ galleryId });
+    expect(testAccessRepository.delete).toHaveBeenCalledWith({ galleryId });
+    expect(testGalleryRepository.delete).toHaveBeenCalledWith({
+      id: galleryId,
+    });
+  });
+
+  it('keeps database records when R2 deletion fails', async () => {
+    const admin = await login(UserRole.Admin);
+    storage.removeAlbumObjects.mockRejectedValueOnce(
+      new (await import('@nestjs/common')).ServiceUnavailableException(
+        'R2 unavailable',
+      ),
+    );
+    await admin
+      .delete(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(503);
+    expect(testImageRepository.delete).not.toHaveBeenCalled();
+    expect(testGalleryRepository.delete).not.toHaveBeenCalled();
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('does not modify R2 for missing albums', async () => {
+    const admin = await login(UserRole.Admin);
+    testGalleryRepository.findOneBy.mockResolvedValue(null as never);
+    await admin
+      .delete(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(404);
+    await admin
+      .patch(`/api/galleries/${galleryId}`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ title: 'Neu' })
+      .expect(404);
+    expect(storage.removeAlbumObjects).not.toHaveBeenCalled();
+  });
+
+  it('does not write R2 objects when the album disappeared during image processing', async () => {
+    const admin = await login(UserRole.Admin);
+    testGalleryRepository.findOneBy
+      .mockResolvedValueOnce({ id: galleryId, title: 'Album' })
+      .mockResolvedValueOnce(null as never);
+    const jpg = await sharp({
+      create: { width: 3, height: 2, channels: 3, background: 'red' },
+    })
+      .jpeg()
+      .toBuffer();
+    await admin
+      .post(`/api/galleries/${galleryId}/images`)
+      .set('X-Requested-With', 'Gallery')
+      .attach('file', jpg, { filename: 'photo.jpg', contentType: 'image/jpeg' })
+      .expect(404);
+    expect(storage.put).not.toHaveBeenCalled();
   });
 
   it('offers registered users and permissions only to admins', async () => {

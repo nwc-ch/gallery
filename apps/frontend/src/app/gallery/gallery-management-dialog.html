@@ -1,0 +1,83 @@
+<dialog
+  #dialog
+  class="management-dialog"
+  aria-labelledby="management-heading"
+  (cancel)="cancel($event)"
+>
+  <header>
+    <div>
+      <span class="eyebrow">ALBUM VERWALTEN</span>
+      <h2 id="management-heading">{{ mode() === 'rename' ? 'Titel ändern' : 'Album löschen' }}</h2>
+    </div>
+    <button
+      type="button"
+      class="close"
+      (click)="close()"
+      [disabled]="busy()"
+      aria-label="Dialog schließen"
+    >
+      ✕
+    </button>
+  </header>
+  <form (ngSubmit)="submit()">
+    @if (mode() === 'rename') {
+      <label for="album-title">Albumtitel</label
+      ><input
+        id="album-title"
+        name="title"
+        type="text"
+        [(ngModel)]="title"
+        maxlength="160"
+        required
+        [disabled]="busy()"
+        autofocus
+      />
+    } @else {
+      <p class="delete-warning">
+        Möchtest du das Album <strong>„{{ gallery().title }}“</strong> mit
+        {{ imageCount() }} Bildern endgültig löschen?
+      </p>
+      <p>
+        Alle Originale, Vorschaubilder, das Albumbild und die Freigaben werden entfernt. Die Bilder
+        werden auch aus dem R2-Speicher gelöscht. Das kann nicht rückgängig gemacht werden.
+      </p>
+      <label class="confirm"
+        ><input name="confirmed" type="checkbox" [(ngModel)]="confirmed" [disabled]="busy()" /><span
+          >Ja, ich möchte dieses Album und alle enthaltenen Bilder endgültig löschen.</span
+        ></label
+      >
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    @if (busy()) {
+      <p class="progress" role="status">
+        {{
+          mode() === 'delete'
+            ? 'Album und Bilder werden gelöscht … Bitte warten.'
+            : 'Titel wird gespeichert …'
+        }}
+      </p>
+    }
+    <footer>
+      <button
+        type="button"
+        class="secondary"
+        (click)="close()"
+        [disabled]="busy()"
+        [attr.autofocus]="mode() === 'delete' ? '' : null"
+      >
+        Abbrechen</button
+      ><button
+        type="submit"
+        class="submit"
+        [class.danger]="mode() === 'delete'"
+        [disabled]="
+          busy() || (mode() === 'rename' ? !title.trim() || title.trim().length > 160 : !confirmed)
+        "
+      >
+        {{ mode() === 'rename' ? 'Titel speichern' : 'Album und Bilder endgültig löschen' }}
+      </button>
+    </footer>
+  </form>
+</dialog>

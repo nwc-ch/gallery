@@ -9,6 +9,8 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 
@@ -67,6 +69,50 @@ export class R2Service implements OnModuleDestroy {
     await this.connection().send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
     );
+  }
+
+  async removeAlbumObjects(galleryId: string): Promise<void> {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        galleryId,
+      )
+    ) {
+      throw new Error('Ungültige Album-ID für die R2-Bereinigung.');
+    }
+    const prefix = `galleries/${galleryId}/`;
+    try {
+      const client = this.connection();
+      // Always drain the first page: deleting keys must not invalidate a pagination token.
+      while (true) {
+        const page = await client.send(
+          new ListObjectsV2Command({
+            Bucket: this.bucket,
+            Prefix: prefix,
+            MaxKeys: 1000,
+          }),
+        );
+        const keys = (page.Contents ?? [])
+          .map((object) => object.Key)
+          .filter((key): key is string => typeof key === 'string');
+        if (keys.length !== (page.Contents ?? []).length)
+          throw new Error('R2 returned invalid object keys');
+        if (!keys.length) return;
+        if (keys.some((key) => !key.startsWith(prefix)))
+          throw new Error('Unexpected object outside album prefix');
+        const deleted = await client.send(
+          new DeleteObjectsCommand({
+            Bucket: this.bucket,
+            Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
+          }),
+        );
+        if (deleted.Errors?.length)
+          throw new Error('R2 could not delete all objects');
+      }
+    } catch {
+      throw new ServiceUnavailableException(
+        'Die Bilder konnten nicht vollständig aus R2 gelöscht werden. Bitte das Löschen erneut versuchen.',
+      );
+    }
   }
 
   async get(key: string): Promise<{ stream: Readable; length?: number }> {

@@ -8,17 +8,36 @@
     <div class="album-heading">
       <h1>{{ gallery()?.title ?? 'Galerie' }}</h1>
       @if (gallery() && auth.user()?.role === 'admin') {
-        <button
-          class="album-options"
-          type="button"
-          (click)="accessOpen.set(true)"
-          aria-label="Albumfreigaben öffnen"
-          aria-haspopup="dialog"
-          [attr.aria-expanded]="accessOpen()"
-          title="Albumfreigaben"
-        >
-          ⋯
-        </button>
+        <div class="album-options-group" (keydown.escape)="closeOptions()">
+          <button
+            #optionsButton
+            class="album-options"
+            type="button"
+            (click)="optionsOpen.set(!optionsOpen())"
+            aria-label="Albumaktionen öffnen"
+            aria-controls="album-actions"
+            [attr.aria-expanded]="optionsOpen()"
+            title="Albumaktionen"
+          >
+            ⋯
+          </button>
+          @if (optionsOpen()) {
+            <div id="album-actions" class="album-actions" role="group" aria-label="Albumaktionen">
+              <button type="button" class="manage-access" (click)="openAction('access')">
+                Freigaben verwalten</button
+              ><button type="button" class="manage-title" (click)="openAction('rename')">
+                Titel ändern</button
+              ><button
+                type="button"
+                class="manage-delete"
+                (click)="openAction('delete')"
+                [disabled]="uploading()"
+              >
+                Album löschen
+              </button>
+            </div>
+          }
+        </div>
       }
     </div>
     @if (loading()) {
@@ -125,7 +144,17 @@
   </main>
 </div>
 @if (gallery() && auth.user()?.role === 'admin' && accessOpen()) {
-  <app-gallery-access-editor [galleryId]="gallery()!.id" (closed)="accessOpen.set(false)" />
+  <app-gallery-access-editor [galleryId]="gallery()!.id" (closed)="closeAdminDialogs()" />
+}
+@if (gallery() && auth.user()?.role === 'admin' && managementMode()) {
+  <app-gallery-management-dialog
+    [gallery]="gallery()!"
+    [mode]="managementMode()!"
+    [imageCount]="images().length"
+    (closed)="closeAdminDialogs()"
+    (renamed)="renamed($event)"
+    (removed)="removed()"
+  />
 }
 @if (selectedIndex() !== null) {
   <app-image-lightbox

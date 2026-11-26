@@ -7,6 +7,9 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Patch,
+  Delete,
+  HttpCode,
   Req,
   Res,
   UseGuards,
@@ -21,6 +24,9 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiResponse,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { SessionGuard } from '../auth/session.guard.js';
@@ -37,6 +43,7 @@ import { UsersService } from '../users/users.service.js';
 import { SameOriginGuard } from '../auth/same-origin.guard.js';
 import { GalleryCoverService } from './gallery-cover.service.js';
 import { SetGalleryCoverDto } from './gallery-cover.dto.js';
+import { GalleryManagementService } from './gallery-management.service.js';
 
 @ApiTags('Galleries')
 @ApiCookieAuth()
@@ -49,6 +56,7 @@ export class GalleriesController {
     private readonly access: GalleryAccessService,
     private readonly users: UsersService,
     private readonly covers: GalleryCoverService,
+    private readonly management: GalleryManagementService,
   ) {}
 
   @Get()
@@ -136,6 +144,51 @@ export class GalleriesController {
   ): Promise<Gallery> {
     response.setHeader('Cache-Control', 'no-store');
     return this.covers.set(id, body);
+  }
+
+  @Patch(':id')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @ApiOperation({ summary: 'Albumtitel ändern (nur Admin)' })
+  @ApiOkResponse({ type: Gallery })
+  @ApiBadRequestResponse()
+  @ApiForbiddenResponse()
+  @ApiNotFoundResponse()
+  rename(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    body: CreateGalleryDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<Gallery> {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.management.rename(id, body.title);
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @HttpCode(204)
+  @ApiOperation({
+    summary:
+      'Album einschließlich aller Bilder in R2 endgültig löschen (nur Admin)',
+  })
+  @ApiNoContentResponse()
+  @ApiForbiddenResponse()
+  @ApiNotFoundResponse()
+  @ApiResponse({
+    status: 503,
+    description: 'R2-Bereinigung fehlgeschlagen; Löschvorgang erneut versuchen',
+  })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    response.setHeader('Cache-Control', 'no-store');
+    await this.management.remove(id);
   }
 
   @Post()

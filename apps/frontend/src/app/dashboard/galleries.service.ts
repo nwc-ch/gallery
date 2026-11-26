@@ -42,6 +42,23 @@ export interface GalleryImages {
 
 @Injectable({ providedIn: 'root' })
 export class GalleriesService {
+  rename(id: string, title: string): Promise<Gallery> {
+    return firstValueFrom(
+      this.http.patch<Gallery>(
+        `/api/galleries/${encodeURIComponent(id)}`,
+        { title },
+        { headers: { 'X-Requested-With': 'Gallery' } },
+      ),
+    );
+  }
+
+  remove(id: string): Promise<void> {
+    return firstValueFrom(
+      this.http.delete<void>(`/api/galleries/${encodeURIComponent(id)}`, {
+        headers: { 'X-Requested-With': 'Gallery' },
+      }),
+    );
+  }
   saveCover(id: string, imageId: string, crop: CoverCrop): Promise<Gallery> {
     return firstValueFrom(
       this.http.put<Gallery>(

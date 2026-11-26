@@ -16,6 +16,7 @@ import sharp from 'sharp';
 import { GalleryAccess } from '../dist/galleries/gallery-access.entity.js';
 import { GalleryAccessService } from '../dist/galleries/gallery-access.service.js';
 import { GalleryCoverService } from '../dist/galleries/gallery-cover.service.js';
+import { GalleryManagementService } from '../dist/galleries/gallery-management.service.js';
 
 await test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
   await dataSource.initialize();
@@ -165,6 +166,66 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     const updated = await repository.findOneByOrFail({ id });
     assert.equal(updated.createdAt.getTime(), created.createdAt.getTime());
     assert.ok(updated.lastLoginAt.getTime() >= created.lastLoginAt.getTime());
+    const managementStorage = {
+      configured: true,
+      removeAlbumObjects: async (albumId) => {
+        for (const key of objects.keys())
+          if (key.startsWith(`galleries/${albumId}/`)) objects.delete(key);
+      },
+    };
+    const management = new GalleryManagementService(
+      runner.manager.getRepository(Gallery),
+      managementStorage,
+    );
+    assert.equal(
+      (await management.rename(gallery.id, 'Neuer Albumtitel')).title,
+      'Neuer Albumtitel',
+    );
+    assert.equal((await galleries.findOne(gallery.id)).coverImageId, image.id);
+    await access.replace(gallery.id, [viewer.id]);
+    const realCleanup = managementStorage.removeAlbumObjects;
+    managementStorage.removeAlbumObjects = async () => {
+      objects.delete(imageRow.originalKey);
+      throw new Error('R2 partial failure');
+    };
+    await assert.rejects(management.remove(gallery.id));
+    assert.equal(
+      await runner.manager.getRepository(Gallery).countBy({ id: gallery.id }),
+      1,
+    );
+    assert.equal(
+      await runner.manager
+        .getRepository(GalleryImage)
+        .countBy({ galleryId: gallery.id }),
+      1,
+    );
+    assert.deepEqual(await access.userIds(gallery.id), [viewer.id]);
+    managementStorage.removeAlbumObjects = realCleanup;
+    objects.set(
+      `galleries/${gallery.id}/orphan/preview.jpg`,
+      Buffer.from('orphan'),
+    );
+    objects.set(`galleries/${otherAlbum.id}/other.jpg`, Buffer.from('other'));
+    await management.remove(gallery.id);
+    assert.equal(
+      await runner.manager.getRepository(Gallery).countBy({ id: gallery.id }),
+      0,
+    );
+    assert.equal(
+      await runner.manager
+        .getRepository(GalleryImage)
+        .countBy({ galleryId: gallery.id }),
+      0,
+    );
+    assert.deepEqual(await access.userIds(gallery.id), []);
+    assert.equal(objects.size, 1);
+    assert.ok(objects.has(`galleries/${otherAlbum.id}/other.jpg`));
+    assert.equal(
+      await runner.manager
+        .getRepository(Gallery)
+        .countBy({ id: otherAlbum.id }),
+      1,
+    );
   } finally {
     if (runner.isTransactionActive) await runner.rollbackTransaction();
     await runner.release();

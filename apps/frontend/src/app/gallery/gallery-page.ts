@@ -1,6 +1,9 @@
 import {
   AfterViewInit,
   Component,
+  HostListener,
+  Injector,
+  afterNextRender,
   DestroyRef,
   ElementRef,
   OnInit,
@@ -18,10 +21,17 @@ import { justifiedLayout } from './justified-layout';
 import { ImageLightbox } from './image-lightbox';
 import { GalleryAccessEditor } from './gallery-access-editor';
 import { GalleryCoverEditor } from './gallery-cover-editor';
+import { GalleryManagementDialog } from './gallery-management-dialog';
 
 @Component({
   selector: 'app-gallery-page',
-  imports: [RouterLink, ImageLightbox, GalleryAccessEditor, GalleryCoverEditor],
+  imports: [
+    RouterLink,
+    ImageLightbox,
+    GalleryAccessEditor,
+    GalleryCoverEditor,
+    GalleryManagementDialog,
+  ],
   templateUrl: './gallery-page.html',
   styleUrl: './gallery-page.scss',
 })
@@ -31,6 +41,8 @@ export class GalleryPage implements OnInit, AfterViewInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly optionsButton = viewChild<ElementRef<HTMLButtonElement>>('optionsButton');
   private readonly grid = viewChild.required<ElementRef<HTMLDivElement>>('grid');
   protected readonly gallery = signal<Gallery | null>(null);
   protected readonly images = signal<GalleryImage[]>([]);
@@ -42,6 +54,8 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected readonly uploadErrors = signal<string[]>([]);
   protected readonly selectedIndex = signal<number | null>(null);
   protected readonly accessOpen = signal(false);
+  protected readonly optionsOpen = signal(false);
+  protected readonly managementMode = signal<'rename' | 'delete' | null>(null);
   protected readonly coverSelection = signal<GalleryImage | null>(null);
   protected readonly failedPreviews = signal<Set<string>>(new Set());
   private readonly width = signal(0);
@@ -78,6 +92,8 @@ export class GalleryPage implements OnInit, AfterViewInit {
     this.images.set([]);
     this.selectedIndex.set(null);
     this.accessOpen.set(false);
+    this.optionsOpen.set(false);
+    this.managementMode.set(null);
     this.coverSelection.set(null);
     this.progress.set('');
     this.uploadErrors.set([]);
@@ -110,6 +126,39 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected coverSaved(gallery: Gallery): void {
     this.gallery.set(gallery);
     this.coverSelection.set(null);
+  }
+
+  @HostListener('document:click', ['$event'])
+  protected outsideOptions(event: Event): void {
+    if (event.target instanceof Element && !event.target.closest('.album-options-group'))
+      this.optionsOpen.set(false);
+  }
+
+  protected closeOptions(): void {
+    this.optionsOpen.set(false);
+    this.optionsButton()?.nativeElement.focus();
+  }
+
+  protected openAction(action: 'access' | 'rename' | 'delete'): void {
+    this.optionsOpen.set(false);
+    if (action === 'access') this.accessOpen.set(true);
+    else this.managementMode.set(action);
+  }
+
+  protected closeAdminDialogs(): void {
+    this.accessOpen.set(false);
+    this.managementMode.set(null);
+    afterNextRender(() => this.optionsButton()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  protected renamed(gallery: Gallery): void {
+    this.gallery.set(gallery);
+    this.closeAdminDialogs();
+  }
+
+  protected async removed(): Promise<void> {
+    this.managementMode.set(null);
+    await this.router.navigateByUrl('/dashboard');
   }
 
   protected async upload(event: Event): Promise<void> {

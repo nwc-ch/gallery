@@ -18,84 +18,142 @@
     @if (error()) {
       <p role="alert" class="error">{{ error() }}</p>
     }
-    @if (auth.user()?.role === 'admin') {
-      <section class="create-gallery" aria-labelledby="create-title">
-        <span class="status">Admin</span>
-        <h2 id="create-title">Neue Galerie</h2>
-        <p>Gib deiner Galerie einen Titel.</p>
-        <form (ngSubmit)="createGallery()">
-          <label for="gallery-title">Titel</label>
-          <div class="form-row">
-            <input
-              id="gallery-title"
-              name="title"
-              [(ngModel)]="title"
-              required
-              maxlength="160"
-              placeholder="Zum Beispiel: Sommer in den Bergen"
-              [disabled]="saving()"
-            />
-            <button
-              type="submit"
-              [disabled]="saving() || !title.trim() || title.trim().length > 160"
-            >
-              {{ saving() ? 'Wird angelegt …' : 'Galerie anlegen' }}
-            </button>
-          </div>
-        </form>
-        @if (success()) {
-          <p role="status" class="success">{{ success() }}</p>
-        }
-      </section>
-    }
     <section class="gallery-section" aria-labelledby="galleries-title" [attr.aria-busy]="loading()">
-      <h2 id="galleries-title">Galerien</h2>
-      @if (loading()) {
-        <p>Galerien werden geladen …</p>
-      } @else if (galleries().length) {
-        <ul class="gallery-grid">
-          @for (gallery of galleries(); track gallery.id) {
-            <li class="gallery-card">
-              @if (gallery.coverImageId && gallery.coverCrop; as crop) {
-                <div class="album-cover">
-                  <img
-                    [src]="
-                      '/api/galleries/' +
-                      gallery.id +
-                      '/images/' +
-                      gallery.coverImageId +
-                      '/preview'
-                    "
-                    [alt]="'Albumbild: ' + gallery.title"
-                    loading="lazy"
-                    [style.width.%]="100 / crop.width"
-                    [style.height.%]="100 / crop.height"
-                    [style.left.%]="(-crop.x / crop.width) * 100"
-                    [style.top.%]="(-crop.y / crop.height) * 100"
-                  />
-                </div>
-              } @else {
-                <span class="gallery-symbol" aria-hidden="true">▧</span>
-              }
-              <h3>
-                <a [routerLink]="['/galleries', gallery.id]">{{ gallery.title }}</a>
-              </h3>
-            </li>
-          }
-        </ul>
-      } @else if (!error()) {
-        <div class="welcome">
-          <div class="mark" aria-hidden="true">g.</div>
-          <h3>Noch keine Galerien</h3>
-          <p>
-            {{
-              auth.user()?.role === 'admin'
-                ? 'Lege deine erste Galerie mit einem Titel an.'
-                : 'Hier erscheinen die für dich freigegebenen Galerien.'
-            }}
-          </p>
-        </div>
+      <div class="gallery-heading">
+        <h2 id="galleries-title">Galerien</h2>
+        @if (auth.user()?.role === 'admin') {
+          <button
+            class="add-album"
+            type="button"
+            aria-label="Album anlegen"
+            title="Album anlegen"
+            (click)="openCreate()"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        }
+      </div>
+      <label for="album-filter">Nach Titel filtern</label>
+      <input
+        id="album-filter"
+        type="search"
+        placeholder="Albumtitel eingeben"
+        [ngModel]="filter()"
+        (ngModelChange)="filter.set($event)"
+        aria-controls="album-results"
+      />
+      @if (success()) {
+        <p role="status" class="success">{{ success() }}</p>
       }
+      <div id="album-results">
+        @if (loading()) {
+          <p>Galerien werden geladen …</p>
+        } @else if (filteredGalleries().length) {
+          <ul class="gallery-grid">
+            @for (gallery of filteredGalleries(); track gallery.id) {
+              <li class="gallery-card">
+                @if (gallery.coverImageId && gallery.coverCrop; as crop) {
+                  <div class="album-cover">
+                    <img
+                      [src]="
+                        '/api/galleries/' +
+                        gallery.id +
+                        '/images/' +
+                        gallery.coverImageId +
+                        '/preview'
+                      "
+                      [alt]="'Albumbild: ' + gallery.title"
+                      loading="lazy"
+                      [style.width.%]="100 / crop.width"
+                      [style.height.%]="100 / crop.height"
+                      [style.left.%]="(-crop.x / crop.width) * 100"
+                      [style.top.%]="(-crop.y / crop.height) * 100"
+                    />
+                  </div>
+                } @else {
+                  <span class="gallery-symbol" aria-hidden="true">▧</span>
+                }
+                <h3>
+                  <a [routerLink]="['/galleries', gallery.id]">{{ gallery.title }}</a>
+                </h3>
+              </li>
+            }
+          </ul>
+        } @else if (galleries().length) {
+          <p role="status">Keine Alben zu diesem Titel gefunden.</p>
+        } @else if (!error()) {
+          <div class="welcome">
+            <div class="mark" aria-hidden="true">g.</div>
+            <h3>Noch keine Galerien</h3>
+            <p>
+              {{
+                auth.user()?.role === 'admin'
+                  ? 'Lege deine erste Galerie mit einem Titel an.'
+                  : 'Hier erscheinen die für dich freigegebenen Galerien.'
+              }}
+            </p>
+          </div>
+        }
+      </div>
     </section>
   </main>
 </div>
+
+@if (auth.user()?.role === 'admin') {
+  <dialog
+    #createDialog
+    class="create-gallery"
+    aria-labelledby="create-title"
+    (cancel)="closeCreate($event)"
+  >
+    <div class="dialog-heading">
+      <h2 id="create-title">Album anlegen</h2>
+      <button
+        type="button"
+        class="close-dialog"
+        aria-label="Dialog schließen"
+        (click)="closeCreate()"
+        [disabled]="saving()"
+      >
+        ×
+      </button>
+    </div>
+    <p>Gib deinem Album einen Titel.</p>
+    <form (ngSubmit)="createGallery()" [attr.aria-busy]="saving()">
+      <label for="gallery-title">Titel</label>
+      <input
+        id="gallery-title"
+        name="title"
+        [(ngModel)]="title"
+        required
+        maxlength="160"
+        placeholder="Zum Beispiel: Sommer in den Bergen"
+        [disabled]="saving()"
+        autofocus
+      />
+      @if (createError()) {
+        <p role="alert" class="error">{{ createError() }}</p>
+      }
+      <div class="dialog-actions">
+        <button type="button" (click)="closeCreate()" [disabled]="saving()">Abbrechen</button>
+        <button
+          class="primary"
+          type="submit"
+          [disabled]="saving() || !title.trim() || title.trim().length > 160"
+        >
+          {{ saving() ? 'Wird angelegt …' : 'Album anlegen' }}
+        </button>
+      </div>
+    </form>
+  </dialog>
+}

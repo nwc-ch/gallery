@@ -2,6 +2,8 @@ import {
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 import { R2Service } from './r2.service.js';
@@ -47,6 +49,75 @@ describe('Cloudflare R2 storage', () => {
       Bucket: 'gallery',
       Key: 'test',
     });
+  });
+
+  it('drains every page of an album prefix, including orphan objects', async () => {
+    const id = '35c499c6-f354-41ec-92f7-9d7f437bc0fd';
+    const prefix = `galleries/${id}/`;
+    const send = vi
+      .spyOn(S3Client.prototype, 'send')
+      .mockResolvedValueOnce({
+        Contents: [
+          { Key: `${prefix}image/original.jpg` },
+          { Key: `${prefix}image/preview.jpg` },
+        ],
+        IsTruncated: true,
+      } as never)
+      .mockResolvedValueOnce({} as never)
+      .mockResolvedValueOnce({
+        Contents: [{ Key: `${prefix}orphan/preview.jpg` }],
+      } as never)
+      .mockResolvedValueOnce({} as never)
+      .mockResolvedValueOnce({ Contents: [] } as never);
+    await storage.removeAlbumObjects(id);
+    expect(
+      send.mock.calls.filter((call) => call[0] instanceof ListObjectsV2Command),
+    ).toHaveLength(3);
+    const deletes = send.mock.calls.filter(
+      (call) => call[0] instanceof DeleteObjectsCommand,
+    );
+    expect(deletes).toHaveLength(2);
+    expect(deletes[0][0].input).toMatchObject({
+      Bucket: 'gallery',
+      Delete: {
+        Objects: [
+          { Key: `${prefix}image/original.jpg` },
+          { Key: `${prefix}image/preview.jpg` },
+        ],
+      },
+    });
+    expect(send.mock.calls[0][0].input).toMatchObject({
+      Bucket: 'gallery',
+      Prefix: prefix,
+      MaxKeys: 1000,
+    });
+  });
+
+  it('treats per-object deletion errors as failure', async () => {
+    const id = '35c499c6-f354-41ec-92f7-9d7f437bc0fd';
+    const send = vi
+      .spyOn(S3Client.prototype, 'send')
+      .mockResolvedValueOnce({
+        Contents: [{ Key: `galleries/${id}/image/original.jpg` }],
+      } as never)
+      .mockResolvedValueOnce({ Errors: [{ Code: 'AccessDenied' }] } as never);
+    await expect(storage.removeAlbumObjects(id)).rejects.toThrow(
+      'nicht vollständig',
+    );
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses bucket-wide or foreign-prefix deletion', async () => {
+    const send = vi.spyOn(S3Client.prototype, 'send');
+    await expect(storage.removeAlbumObjects('')).rejects.toThrow('Ungültige');
+    expect(send).not.toHaveBeenCalled();
+    send.mockResolvedValueOnce({
+      Contents: [{ Key: 'galleries/another-album/image.jpg' }],
+    } as never);
+    await expect(
+      storage.removeAlbumObjects('35c499c6-f354-41ec-92f7-9d7f437bc0fd'),
+    ).rejects.toThrow('nicht vollständig');
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it('fails explicitly without credentials instead of using a local fallback', async () => {

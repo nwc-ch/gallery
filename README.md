@@ -212,6 +212,41 @@ Die automatisierten Tests prüfen R2-SDK-Aufrufe mit simuliertem Speicher sowie
 JPG-Verarbeitung, Berechtigungen, Justified-Layout und Bildnavigation. Ein echter
 R2-Upload erfordert die oben genannten Zugangsdaten.
 
+## Alben umbenennen und löschen
+
+Im **Drei-Punkte-Menü** neben dem Albumtitel stehen Administratoren
+**Freigaben verwalten**, **Titel ändern** und **Album löschen** zur Verfügung.
+Der neue Titel wird im Dialog eingegeben und gespeichert. Es gelten dieselben
+Regeln wie beim Anlegen: 1 bis 160 Zeichen, Leerzeichen am Rand werden entfernt.
+
+Beim Löschen zeigt ein Bestätigungsdialog den Albumtitel und die Anzahl der
+Bilder. Erst nach dem ausdrücklichen Bestätigen wird die Löschaktion möglich.
+Sie entfernt das Album einschließlich Albumbild-Auswahl, Bilddatensätzen und
+Benutzerfreigaben. Alle Objekte unter `galleries/ALBUM_ID/` im R2-Bucket `gallery`
+werden ebenfalls gelöscht, einschließlich Originalen, Vorschaubildern und
+möglichen verwaisten Upload-Dateien. Andere Alben bleiben unberührt.
+
+Die R2-Zugangsdaten benötigen dafür auch `ListObjectsV2` und `DeleteObjects`.
+Das Backend verarbeitet den Präfix in Batches mit bis zu 1000 Objekten und prüft
+die Fehler einzelner Löschungen. Erst nach erfolgreichem Aufräumen werden die
+Datenbankeinträge in einer Transaktion gelöscht. Für diese Funktionen sind keine
+zusätzlichen Schemaänderungen notwendig.
+
+R2 und MariaDB bilden keine gemeinsame Transaktion: Schlägt eine Löschung fehl,
+können einzelne Dateien bereits entfernt sein. Die Datenbankreferenzen bleiben
+für einen erneuten Versuch erhalten; der Dialog zeigt einen Fehler und erlaubt
+das Wiederholen der Aktion. Erfolgreiches Löschen führt zurück zur Albumübersicht.
+Während eines laufenden Löschvorgangs ist das Schließen des Dialogs deaktiviert.
+Uploads und Löschvorgänge werden pro Album über dieselbe Datenbanksperre
+koordiniert, damit ein Upload keine neuen Dateien in einem gelöschten Album ablegt.
+Leere Alben ohne konfigurierte R2-Verbindung können ebenfalls gelöscht werden.
+
+API (nur Admin, jeweils mit `X-Requested-With: Gallery`):
+
+- `PATCH /api/galleries/:id` mit `{ "title": "Neuer Albumtitel" }`.
+- `DELETE /api/galleries/:id`: endgültiges Löschen inklusive R2-Bildern,
+  bei Erfolg Status `204`.
+
 ## Albumbild mit Bildausschnitt
 
 Administratoren können bei jedem Bild eines Albums **Als Albumbild** wählen.
@@ -276,8 +311,8 @@ auf anderen Installationen vor dem Backend-Start `npm run migration:run` ausfüh
 
 ### Benutzerfreigaben je Album
 
-Administratoren öffnen ein Album und klicken auf den **Drei-Punkte-Button** neben
-dem Albumtitel. Im modalen Dialog **Wer darf dieses Album sehen?** wählen sie die
+Administratoren öffnen ein Album und wählen im **Drei-Punkte-Menü** neben dem
+Albumtitel **Freigaben verwalten**. Im modalen Dialog **Wer darf dieses Album sehen?** wählen sie die
 gewünschten Benutzer aus. Die Liste enthält alle Konten, die sich
 bereits mindestens einmal mit Google angemeldet haben, unabhängig davon, ob
 aktuell eine Sitzung aktiv ist. Alle Benutzer werden ohne Suchfeld angezeigt.

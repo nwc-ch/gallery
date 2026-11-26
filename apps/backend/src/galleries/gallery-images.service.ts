@@ -15,6 +15,7 @@ import { GalleryImageDto, GalleryImagesDto } from './gallery-image.dto.js';
 import { GalleriesService } from './galleries.service.js';
 import { R2Service } from '../storage/r2.service.js';
 import type { AuthUser } from '../auth/auth.types.js';
+import { Gallery } from './gallery.entity.js';
 
 export const MAX_IMAGE_BYTES = 50 * 1024 * 1024;
 
@@ -106,31 +107,47 @@ export class GalleryImagesService {
     const id = randomUUID();
     const originalKey = `galleries/${galleryId}/${id}/original.jpg`;
     const previewKey = `galleries/${galleryId}/${id}/preview.jpg`;
+    let storageStarted = false;
     try {
-      await this.storage.put(originalKey, file.buffer);
-      await this.storage.put(previewKey, preview);
-      const saved = await this.images.save(
-        this.images.create({
-          id,
-          galleryId,
-          filename: basename(file.originalname.replaceAll('\\', '/')).slice(
-            -255,
-          ),
-          originalKey,
-          previewKey,
-          width,
-          height,
-          byteSize: file.buffer.length,
-        }),
-      );
+      const saved = await this.images.manager.transaction(async (manager) => {
+        const gallery = await manager
+          .getRepository(Gallery)
+          .findOne({
+            where: { id: galleryId },
+            lock: { mode: 'pessimistic_write' },
+          });
+        if (!gallery)
+          throw new NotFoundException('Album wurde inzwischen gelöscht.');
+        storageStarted = true;
+        await this.storage.put(originalKey, file.buffer);
+        await this.storage.put(previewKey, preview);
+        const images = manager.getRepository(GalleryImage);
+        return images.save(
+          images.create({
+            id,
+            galleryId,
+            filename: basename(file.originalname.replaceAll('\\', '/')).slice(
+              -255,
+            ),
+            originalKey,
+            previewKey,
+            width,
+            height,
+            byteSize: file.buffer.length,
+          }),
+        );
+      });
       return this.dto(saved);
-    } catch {
-      const cleanup = await Promise.allSettled([
-        this.storage.remove(originalKey),
-        this.storage.remove(previewKey),
-      ]);
-      if (cleanup.some((result) => result.status === 'rejected'))
-        this.logger.error(`R2-Aufräumen für Bild ${id} fehlgeschlagen.`);
+    } catch (error) {
+      if (storageStarted) {
+        const cleanup = await Promise.allSettled([
+          this.storage.remove(originalKey),
+          this.storage.remove(previewKey),
+        ]);
+        if (cleanup.some((result) => result.status === 'rejected'))
+          this.logger.error(`R2-Aufräumen für Bild ${id} fehlgeschlagen.`);
+      }
+      if (error instanceof NotFoundException) throw error;
       throw new ServiceUnavailableException(
         'Das Bild konnte nicht gespeichert werden. Bitte erneut versuchen.',
       );

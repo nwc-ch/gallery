@@ -5,11 +5,16 @@ import { UserRole } from '../src/users/user-role.js';
 import { Gallery } from '../src/galleries/gallery.entity.js';
 import { User } from '../src/users/user.entity.js';
 import { GalleryAccess } from '../src/galleries/gallery-access.entity.js';
+import { GalleryImage } from '../src/galleries/gallery-image.entity.js';
 import type { FindOperator } from 'typeorm';
 
 export const testUsers = new Map<string, AuthUser>();
 export const testAlbumAccess = new Map<string, Set<string>>();
 export const testAccessRepository = {
+  delete: vi.fn(async ({ galleryId }: { galleryId: string }) => {
+    testAlbumAccess.delete(galleryId);
+    return { affected: 1 };
+  }),
   countBy: vi.fn(
     async ({ galleryId, userId }: { galleryId: string; userId: string }) =>
       testAlbumAccess.get(galleryId)?.has(userId) ? 1 : 0,
@@ -56,6 +61,12 @@ export const testAccessRepository = {
 };
 
 export const testGalleryRepository = {
+  manager: {
+    transaction: vi.fn(async (work: (manager: object) => Promise<unknown>) =>
+      work(testEntityManager()),
+    ),
+  },
+  delete: vi.fn(async (_criteria: object) => ({ affected: 1 })),
   update: vi.fn(async (_criteria: object, _data: object) => ({ affected: 1 })),
   createQueryBuilder: vi.fn(() => {
     let userId = '';
@@ -92,11 +103,35 @@ export const testGalleryRepository = {
 };
 
 export const testImageRepository = {
+  manager: {
+    transaction: vi.fn(async (work: (manager: object) => Promise<unknown>) =>
+      work(testEntityManager()),
+    ),
+  },
+  countBy: vi.fn(async (_criteria: object) => 0),
+  delete: vi.fn(async (_criteria: object) => ({ affected: 1 })),
   find: vi.fn(async () => []),
   findOneBy: vi.fn(async () => null),
   create: vi.fn((data: object) => data),
   save: vi.fn(async (data: object) => ({ ...data, createdAt: new Date() })),
 };
+
+function testEntityManager() {
+  return {
+    getRepository: (entity: unknown) => {
+      if (entity === Gallery)
+        return {
+          findOne: async ({ where }: { where: { id: string } }) =>
+            testGalleryRepository.findOneBy(where),
+          update: testGalleryRepository.update,
+          delete: testGalleryRepository.delete,
+        };
+      if (entity === GalleryImage) return testImageRepository;
+      if (entity === GalleryAccess) return testAccessRepository;
+      throw new Error('Unexpected repository');
+    },
+  };
+}
 
 @Module({})
 export class TestDatabaseModule {}
