@@ -160,7 +160,8 @@ label {
   margin-top: 24px;
   gap: 12px;
 }
-input {
+input,
+select {
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
@@ -171,7 +172,8 @@ input {
   color: #293c31;
   font: inherit;
 }
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid #759065;
   outline-offset: 2px;
 }

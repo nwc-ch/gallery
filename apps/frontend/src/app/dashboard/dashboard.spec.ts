@@ -11,6 +11,7 @@ describe('Dashboard galleries', () => {
 
   beforeEach(() => {
     localStorage.removeItem('gallery.album-title-filter');
+    localStorage.removeItem('gallery.album-category-filter');
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
       configurable: true,
       value: function (this: HTMLDialogElement) {
@@ -39,6 +40,7 @@ describe('Dashboard galleries', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     localStorage.removeItem('gallery.album-title-filter');
+    localStorage.removeItem('gallery.album-category-filter');
   });
 
   async function render() {
@@ -151,7 +153,7 @@ describe('Dashboard galleries', () => {
     expect(fixture.nativeElement.querySelector('.gallery-card').textContent).toContain('Winter');
     await filter('Unbekannt');
     expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(0);
-    expect(fixture.nativeElement.textContent).toContain('Keine Alben zu diesem Titel gefunden.');
+    expect(fixture.nativeElement.textContent).toContain('Keine Alben für diese Filter gefunden.');
     await filter('');
     expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(2);
     expect(galleries.list).toHaveBeenCalledTimes(1);
@@ -232,7 +234,63 @@ describe('Dashboard galleries', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(0);
-    expect(fixture.nativeElement.textContent).toContain('Keine Alben zu diesem Titel gefunden.');
+    expect(fixture.nativeElement.textContent).toContain('Keine Alben für diese Filter gefunden.');
+  });
+
+  it('offers only categories used by visible albums and combines category and title filters', async () => {
+    const travel = { id: 'travel', name: 'Reisen' };
+    const family = { id: 'family', name: 'Familie' };
+    galleries.list.mockResolvedValue([
+      { id: 'one', title: '2015.02 Berge', categories: [travel, family] },
+      { id: 'two', title: '2014.01 Strand', categories: [travel] },
+      { id: 'three', title: '2015.01 Familie', categories: [family] },
+      { id: 'four', title: 'Ohne Kategorie', categories: [] },
+    ]);
+    const fixture = await render();
+    const select = fixture.nativeElement.querySelector('#category-filter') as HTMLSelectElement;
+    expect(Array.from(select.options, (option) => option.textContent?.trim())).toEqual([
+      'Alle Kategorien',
+      'Familie',
+      'Reisen',
+    ]);
+    select.value = 'travel';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(2);
+    expect(localStorage.getItem('gallery.album-category-filter')).toBe('travel');
+    const title = fixture.nativeElement.querySelector('#album-filter') as HTMLInputElement;
+    title.value = '2015';
+    title.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.gallery-card').textContent).toContain(
+      '2015.02 Berge',
+    );
+    fixture.destroy();
+    const restored = await render();
+    expect(restored.nativeElement.querySelector('#category-filter').value).toBe('travel');
+    expect(restored.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(1);
+    const restoredSelect = restored.nativeElement.querySelector(
+      '#category-filter',
+    ) as HTMLSelectElement;
+    restoredSelect.value = '';
+    restoredSelect.dispatchEvent(new Event('change'));
+    await restored.whenStable();
+    restored.detectChanges();
+    expect(restored.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(2);
+    expect(localStorage.getItem('gallery.album-category-filter')).toBeNull();
+  });
+
+  it('discards a stored category that is no longer used by visible albums', async () => {
+    localStorage.setItem('gallery.album-category-filter', 'hidden-category');
+    galleries.list.mockResolvedValue([{ id: 'one', title: 'Sichtbar', categories: [] }]);
+    const fixture = await render();
+    expect(fixture.nativeElement.querySelector('#category-filter').value).toBe('');
+    expect(fixture.nativeElement.querySelectorAll('#category-filter option')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(1);
+    expect(localStorage.getItem('gallery.album-category-filter')).toBeNull();
   });
 
   it('closes the create dialog with close button or Escape without saving', async () => {

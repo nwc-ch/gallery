@@ -18,6 +18,7 @@ export class GalleriesService {
     if (user.role !== UserRole.Admin) {
       return this.galleries
         .createQueryBuilder('gallery')
+        .leftJoinAndSelect('gallery.categories', 'category')
         .innerJoin(
           GalleryAccess,
           'access',
@@ -28,11 +29,17 @@ export class GalleriesService {
         .addOrderBy('gallery.id', 'DESC')
         .getMany();
     }
-    return this.galleries.find({ order: { title: 'DESC', id: 'DESC' } });
+    return this.galleries.find({
+      relations: { categories: true },
+      order: { title: 'DESC', id: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Gallery> {
-    const gallery = await this.galleries.findOneBy({ id });
+    const gallery = await this.galleries.findOne({
+      where: { id },
+      relations: { categories: true },
+    });
     if (!gallery) throw new NotFoundException('Galerie nicht gefunden.');
     return gallery;
   }
@@ -43,6 +50,8 @@ export class GalleriesService {
   }
 
   create(title: string, createdById: string): Promise<Gallery> {
-    return this.galleries.save(this.galleries.create({ title, createdById }));
+    return this.galleries.save(
+      this.galleries.create({ title, createdById, categories: [] }),
+    );
   }
 }

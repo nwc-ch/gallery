@@ -17,6 +17,8 @@ import { GalleryAccess } from '../dist/galleries/gallery-access.entity.js';
 import { GalleryAccessService } from '../dist/galleries/gallery-access.service.js';
 import { GalleryCoverService } from '../dist/galleries/gallery-cover.service.js';
 import { GalleryManagementService } from '../dist/galleries/gallery-management.service.js';
+import { Category } from '../dist/galleries/category.entity.js';
+import { CategoriesService } from '../dist/galleries/categories.service.js';
 
 await test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
   await dataSource.initialize();
@@ -114,6 +116,34 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     assert.equal(covered.coverImageId, image.id);
     assert.deepEqual(covered.coverCrop, crop);
     const otherAlbum = await galleries.create('Anderes Album', id);
+    const categories = new CategoriesService(
+      runner.manager.getRepository(Category),
+      runner.manager.getRepository(Gallery),
+    );
+    const publicCategory = await categories.create(`Reisen-${randomUUID()}`);
+    const hiddenCategory = await categories.create(`Privat-${randomUUID()}`);
+    const unusedCategory = await categories.create(`Unbenutzt-${randomUUID()}`);
+    await assert.rejects(
+      categories.create(publicCategory.name),
+      /existiert bereits/,
+    );
+    await categories.replace(gallery.id, [publicCategory.id]);
+    await categories.replace(otherAlbum.id, [hiddenCategory.id]);
+    assert.deepEqual(
+      (await galleries.findOne(gallery.id)).categories.map((item) => item.id),
+      [publicCategory.id],
+    );
+    await assert.rejects(categories.replace(gallery.id, [randomUUID()]));
+    assert.deepEqual(
+      (await galleries.findOne(gallery.id)).categories.map((item) => item.id),
+      [publicCategory.id],
+    );
+    await categories.replace(gallery.id, []);
+    assert.deepEqual((await galleries.findOne(gallery.id)).categories, []);
+    await categories.replace(gallery.id, [publicCategory.id]);
+    assert.ok(
+      (await categories.list()).some((item) => item.id === unusedCategory.id),
+    );
     await assert.rejects(
       covers.set(otherAlbum.id, { imageId: image.id, crop }),
     );
@@ -138,6 +168,12 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     await assert.rejects(galleries.findVisible(gallery.id, viewer));
     await assert.rejects(imageService.list(gallery.id, viewer));
     await access.replace(gallery.id, [viewer.id]);
+    const visibleCategories = (await galleries.list(viewer)).flatMap((album) =>
+      album.categories.map((category) => category.id),
+    );
+    assert.deepEqual(visibleCategories, [publicCategory.id]);
+    assert.equal(visibleCategories.includes(hiddenCategory.id), false);
+    assert.equal(visibleCategories.includes(unusedCategory.id), false);
     assert.equal(
       (await galleries.list(viewer)).some((item) => item.id === gallery.id),
       true,
@@ -153,6 +189,10 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     await assert.rejects(access.replace(gallery.id, ['not-a-registered-user']));
     assert.deepEqual(await access.userIds(gallery.id), [viewer.id]);
     await access.replace(gallery.id, []);
+    assert.deepEqual(
+      (await galleries.list(viewer)).flatMap((album) => album.categories),
+      [],
+    );
     await assert.rejects(galleries.findVisible(gallery.id, viewer));
     assert.equal(
       (await galleries.list(viewer)).some((item) => item.id === gallery.id),
@@ -207,6 +247,27 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     );
     objects.set(`galleries/${otherAlbum.id}/other.jpg`, Buffer.from('other'));
     await management.remove(gallery.id);
+    assert.equal(
+      (
+        await runner.query(
+          'SELECT * FROM gallery_categories WHERE galleryId = ?',
+          [gallery.id],
+        )
+      ).length,
+      0,
+    );
+    assert.equal(
+      await runner.manager
+        .getRepository(Category)
+        .countBy({ id: publicCategory.id }),
+      1,
+    );
+    assert.deepEqual(
+      (await galleries.findOne(otherAlbum.id)).categories.map(
+        (item) => item.id,
+      ),
+      [hiddenCategory.id],
+    );
     assert.equal(
       await runner.manager.getRepository(Gallery).countBy({ id: gallery.id }),
       0,

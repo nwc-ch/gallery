@@ -15,6 +15,12 @@ export interface Gallery {
   createdAt: string;
   coverImageId?: string | null;
   coverCrop?: CoverCrop | null;
+  categories?: Category[];
+}
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
 export interface CoverCrop {
@@ -42,6 +48,33 @@ export interface GalleryImages {
 
 @Injectable({ providedIn: 'root' })
 export class GalleriesService {
+  categories(): Promise<Category[]> {
+    return firstValueFrom(this.http.get<Category[]>('/api/categories'));
+  }
+
+  createCategory(name: string): Promise<Category> {
+    return firstValueFrom(
+      this.http.post<Category>(
+        '/api/categories',
+        { name },
+        {
+          headers: { 'X-Requested-With': 'Gallery' },
+        },
+      ),
+    );
+  }
+
+  saveCategories(id: string, categoryIds: string[]): Promise<Category[]> {
+    return firstValueFrom(
+      this.http.put<Category[]>(
+        `/api/galleries/${encodeURIComponent(id)}/categories`,
+        { categoryIds },
+        {
+          headers: { 'X-Requested-With': 'Gallery' },
+        },
+      ),
+    );
+  }
   removeImage(galleryId: string, imageId: string): Promise<void> {
     return firstValueFrom(
       this.http.delete<void>(

@@ -5,12 +5,15 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  ManyToMany,
+  JoinTable,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { User } from '../users/user.entity.js';
 import { GalleryImage } from './gallery-image.entity.js';
 import { CoverCropDto } from './gallery-cover.dto.js';
+import { Category } from './category.entity.js';
 
 @Entity('galleries')
 export class Gallery {
@@ -21,6 +24,15 @@ export class Gallery {
   @ApiProperty({ maxLength: 160 })
   @Column({ type: 'varchar', length: 160 })
   title!: string;
+
+  @ApiProperty({ type: () => Category, isArray: true })
+  @ManyToMany(() => Category)
+  @JoinTable({
+    name: 'gallery_categories',
+    joinColumn: { name: 'galleryId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'categoryId', referencedColumnName: 'id' },
+  })
+  categories!: Relation<Category[]>;
 
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   @Column({ type: 'uuid', nullable: true })

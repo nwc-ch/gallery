@@ -44,6 +44,9 @@ import { SameOriginGuard } from '../auth/same-origin.guard.js';
 import { GalleryCoverService } from './gallery-cover.service.js';
 import { SetGalleryCoverDto } from './gallery-cover.dto.js';
 import { GalleryManagementService } from './gallery-management.service.js';
+import { CategoriesService } from './categories.service.js';
+import { UpdateGalleryCategoriesDto } from './category.dto.js';
+import { Category } from './category.entity.js';
 
 @ApiTags('Galleries')
 @ApiCookieAuth()
@@ -57,6 +60,7 @@ export class GalleriesController {
     private readonly users: UsersService,
     private readonly covers: GalleryCoverService,
     private readonly management: GalleryManagementService,
+    private readonly categories: CategoriesService,
   ) {}
 
   @Get()
@@ -122,6 +126,29 @@ export class GalleriesController {
   ): Promise<UpdateGalleryAccessDto> {
     response.setHeader('Cache-Control', 'no-store');
     return { userIds: await this.access.replace(id, body.userIds) };
+  }
+
+  @Put(':id/categories')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @ApiOperation({ summary: 'Kategorien eines Albums ersetzen (nur Admin)' })
+  @ApiOkResponse({ type: Category, isArray: true })
+  @ApiBadRequestResponse()
+  @ApiForbiddenResponse()
+  @ApiNotFoundResponse()
+  setCategories(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    body: UpdateGalleryCategoriesDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.categories.replace(id, body.categoryIds);
   }
 
   @Put(':id/cover')

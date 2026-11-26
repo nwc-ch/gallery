@@ -23,6 +23,8 @@ import { GalleryAccessEditor } from './gallery-access-editor';
 import { GalleryCoverEditor } from './gallery-cover-editor';
 import { GalleryManagementDialog } from './gallery-management-dialog';
 import { GalleryImageActions } from './gallery-image-actions';
+import { GalleryCategoriesEditor } from './gallery-categories-editor';
+import type { Category } from '../dashboard/galleries.service';
 
 @Component({
   selector: 'app-gallery-page',
@@ -33,6 +35,7 @@ import { GalleryImageActions } from './gallery-image-actions';
     GalleryCoverEditor,
     GalleryManagementDialog,
     GalleryImageActions,
+    GalleryCategoriesEditor,
   ],
   templateUrl: './gallery-page.html',
   styleUrl: './gallery-page.scss',
@@ -56,6 +59,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected readonly uploadErrors = signal<string[]>([]);
   protected readonly selectedIndex = signal<number | null>(null);
   protected readonly accessOpen = signal(false);
+  protected readonly categoriesOpen = signal(false);
   protected readonly optionsOpen = signal(false);
   protected readonly managementMode = signal<'rename' | 'delete' | null>(null);
   protected readonly coverSelection = signal<GalleryImage | null>(null);
@@ -94,6 +98,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
     this.images.set([]);
     this.selectedIndex.set(null);
     this.accessOpen.set(false);
+    this.categoriesOpen.set(false);
     this.optionsOpen.set(false);
     this.managementMode.set(null);
     this.coverSelection.set(null);
@@ -151,20 +156,27 @@ export class GalleryPage implements OnInit, AfterViewInit {
     this.optionsButton()?.nativeElement.focus();
   }
 
-  protected openAction(action: 'access' | 'rename' | 'delete'): void {
+  protected openAction(action: 'access' | 'categories' | 'rename' | 'delete'): void {
     this.optionsOpen.set(false);
     if (action === 'access') this.accessOpen.set(true);
+    else if (action === 'categories') this.categoriesOpen.set(true);
     else this.managementMode.set(action);
   }
 
   protected closeAdminDialogs(): void {
     this.accessOpen.set(false);
+    this.categoriesOpen.set(false);
     this.managementMode.set(null);
     afterNextRender(() => this.optionsButton()?.nativeElement.focus(), { injector: this.injector });
   }
 
   protected renamed(gallery: Gallery): void {
     this.gallery.set(gallery);
+    this.closeAdminDialogs();
+  }
+
+  protected categoriesSaved(categories: Category[]): void {
+    this.gallery.update((gallery) => (gallery ? { ...gallery, categories } : gallery));
     this.closeAdminDialogs();
   }
 

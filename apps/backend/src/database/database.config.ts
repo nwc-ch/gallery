@@ -5,6 +5,7 @@ import { User } from '../users/user.entity.js';
 import { Gallery } from '../galleries/gallery.entity.js';
 import { GalleryImage } from '../galleries/gallery-image.entity.js';
 import { GalleryAccess } from '../galleries/gallery-access.entity.js';
+import { Category } from '../galleries/category.entity.js';
 
 export function databaseOptions(): DataSourceOptions {
   const port = Number(process.env.DB_PORT ?? 3307);
@@ -23,7 +24,7 @@ export function databaseOptions(): DataSourceOptions {
     database: process.env.DB_DATABASE ?? 'gallery',
     charset: 'utf8mb4',
     timezone: 'Z',
-    entities: [User, Gallery, GalleryImage, GalleryAccess],
+    entities: [User, Gallery, GalleryImage, GalleryAccess, Category],
     migrations: [
       fileURLToPath(new URL('./migrations/*.js', import.meta.url)).replaceAll(
         '\\',

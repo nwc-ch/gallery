@@ -1,3 +1,5 @@
+import { Category } from '../src/galleries/category.entity.js';
+import { testCategoryRepository } from './auth-test.modules.js';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { INestApplication } from '@nestjs/common';
@@ -55,6 +57,14 @@ describe('Gallery permissions and validation', () => {
     testUsers.clear();
     testAlbumAccess.clear();
     vi.clearAllMocks();
+    testCategoryRepository.find.mockReset().mockResolvedValue([]);
+    testCategoryRepository.findBy.mockReset().mockResolvedValue([]);
+    testCategoryRepository.save
+      .mockReset()
+      .mockImplementation(async (data: object) => ({
+        id: '18620211-b75e-4a8b-9394-ad89171f1136',
+        ...data,
+      }));
     testGalleryRepository.find.mockReset().mockResolvedValue([]);
     testGalleryRepository.update.mockReset().mockResolvedValue({ affected: 1 });
     objects.clear();
@@ -97,6 +107,8 @@ describe('Gallery permissions and validation', () => {
       .useModule(TestDatabaseModule)
       .overrideModule(UsersModule)
       .useModule(TestUsersModule)
+      .overrideProvider(getRepositoryToken(Category))
+      .useValue(testCategoryRepository)
       .overrideProvider(getRepositoryToken(Gallery))
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))
@@ -235,6 +247,147 @@ describe('Gallery permissions and validation', () => {
       .expect(503);
     expect(storage.remove).not.toHaveBeenCalled();
     expect(testImageRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('restricts the category catalog, creation and album assignments to admins', async () => {
+    const path = `/api/galleries/${galleryId}/categories`;
+    await request(app.getHttpServer()).get('/api/categories').expect(401);
+    await request(app.getHttpServer())
+      .post('/api/categories')
+      .send({ name: 'Reisen' })
+      .expect(401);
+    await request(app.getHttpServer())
+      .put(path)
+      .send({ categoryIds: [] })
+      .expect(401);
+    const viewer = await login();
+    await viewer.get('/api/categories').expect(403);
+    await viewer
+      .post('/api/categories')
+      .set('X-Requested-With', 'Gallery')
+      .send({ name: 'Reisen' })
+      .expect(403);
+    await viewer
+      .put(path)
+      .set('X-Requested-With', 'Gallery')
+      .send({ categoryIds: [] })
+      .expect(403);
+    const admin = await login(UserRole.Admin, 'admin');
+    await admin.post('/api/categories').send({ name: 'Reisen' }).expect(403);
+    await admin.put(path).send({ categoryIds: [] }).expect(403);
+    expect(testCategoryRepository.save).not.toHaveBeenCalled();
+    expect(testGalleryRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('lets admins create trimmed categories, list the catalog and assign multiple categories', async () => {
+    const admin = await login(UserRole.Admin);
+    const created = await admin
+      .post('/api/categories')
+      .set('X-Requested-With', 'Gallery')
+      .send({ name: '  Reisen  ' })
+      .expect(201);
+    expect(created.body.name).toBe('Reisen');
+    const other = { id: imageId, name: 'Familie' };
+    testCategoryRepository.find.mockResolvedValue([created.body, other]);
+    expect((await admin.get('/api/categories').expect(200)).body).toHaveLength(
+      2,
+    );
+    testCategoryRepository.findBy.mockResolvedValue([created.body, other]);
+    const response = await admin
+      .put(`/api/galleries/${galleryId}/categories`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ categoryIds: [created.body.id, other.id] })
+      .expect(200);
+    expect(response.body).toHaveLength(2);
+    expect(testGalleryRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: galleryId,
+        categories: [created.body, other],
+      }),
+    );
+    await admin
+      .put(`/api/galleries/${galleryId}/categories`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ categoryIds: [] })
+      .expect(200);
+    expect(testGalleryRepository.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({ categories: [] }),
+    );
+  });
+
+  it.each([
+    { name: ' ' },
+    { name: 'a'.repeat(81) },
+    { name: 5 },
+    { name: 'Reisen', role: 'admin' },
+  ])('validates category input %j', async (body) => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .post('/api/categories')
+      .set('X-Requested-With', 'Gallery')
+      .send(body)
+      .expect(400);
+    expect(testCategoryRepository.save).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { categoryIds: ['invalid'] },
+    { categoryIds: [imageId, imageId] },
+    { categoryIds: 'invalid' },
+    { categoryIds: [], role: 'admin' },
+    {},
+  ])('validates category assignments %j', async (body) => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .put(`/api/galleries/${galleryId}/categories`)
+      .set('X-Requested-With', 'Gallery')
+      .send(body)
+      .expect(400);
+    expect(testGalleryRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('refuses unknown categories or missing albums without changing assignments', async () => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .put(`/api/galleries/${galleryId}/categories`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ categoryIds: [imageId] })
+      .expect(400);
+    testGalleryRepository.findOneBy.mockResolvedValueOnce(null as never);
+    await admin
+      .put(`/api/galleries/${galleryId}/categories`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ categoryIds: [] })
+      .expect(404);
+    expect(testGalleryRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('exposes only categories assigned to visible albums to regular users', async () => {
+    const viewer = await login();
+    const hiddenId = '95c499c6-f354-41ec-92f7-9d7f437bc0fd';
+    testGalleryRepository.find.mockResolvedValue([
+      {
+        id: galleryId,
+        title: 'Sichtbar',
+        categories: [{ id: imageId, name: 'Reisen' }],
+      },
+      {
+        id: hiddenId,
+        title: 'Privat',
+        categories: [{ id: galleryId, name: 'Geheim' }],
+      },
+    ] as never);
+    testAlbumAccess.set(galleryId, new Set(['test-user']));
+    const visible = (await viewer.get('/api/galleries').expect(200)).body;
+    expect(
+      visible.flatMap((album: Gallery) =>
+        album.categories.map((category) => category.name),
+      ),
+    ).toEqual(['Reisen']);
+    await viewer.get(`/api/galleries/${hiddenId}`).expect(404);
+    await viewer.get('/api/categories').expect(403);
+    testAlbumAccess.clear();
+    expect((await viewer.get('/api/galleries').expect(200)).body).toEqual([]);
   });
 
   it('rejects guests', async () => {

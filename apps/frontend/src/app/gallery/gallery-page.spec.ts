@@ -26,6 +26,9 @@ describe('Gallery preview and upload flow', () => {
     rename: vi.fn(),
     remove: vi.fn(),
     removeImage: vi.fn(),
+    categories: vi.fn(),
+    saveCategories: vi.fn(),
+    createCategory: vi.fn(),
   };
   beforeEach(() => {
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
@@ -44,6 +47,9 @@ describe('Gallery preview and upload flow', () => {
     api.rename.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Neuer Albumtitel' });
     api.remove.mockReset().mockResolvedValue(undefined);
     api.removeImage.mockReset().mockResolvedValue(undefined);
+    api.categories.mockReset().mockResolvedValue([]);
+    api.saveCategories.mockReset().mockResolvedValue([]);
+    api.createCategory.mockReset();
     user.set({ id: 'user-id', email: 'test@example.invalid', name: 'Test', role: 'admin' });
     api.get.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Sommer' });
     api.images.mockReset().mockResolvedValue({ images: [image], uploadAvailable: true });
@@ -107,6 +113,27 @@ describe('Gallery preview and upload flow', () => {
     fixture.nativeElement.querySelector('app-gallery-cover-editor .close').click();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-gallery-cover-editor')).toBeNull();
+  });
+
+  it('opens category management only through the album actions and closes it after saving', async () => {
+    const fixture = await render();
+    expect(api.categories).not.toHaveBeenCalled();
+    fixture.nativeElement.querySelector('.album-options').click();
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('.manage-categories').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.categories).toHaveBeenCalledTimes(1);
+    expect(fixture.nativeElement.querySelector('app-gallery-categories-editor')).not.toBeNull();
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.save-categories')).not.toBeNull();
+    });
+    fixture.nativeElement.querySelector('.save-categories').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-gallery-categories-editor')).toBeNull();
   });
 
   it('loads permissions only after clicking the three-dot button and closes the dialog', async () => {

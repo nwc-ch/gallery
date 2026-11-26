@@ -1,0 +1,106 @@
+dialog {
+  box-sizing: border-box;
+  width: min(600px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  border: 1px solid #d6dece;
+  border-radius: 12px;
+  background: #fcfbf8;
+  color: #293c31;
+  overflow-wrap: anywhere;
+}
+dialog::backdrop {
+  background: #18251dc0;
+}
+.dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+}
+p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+button {
+  padding: 10px 16px;
+  border: 1px solid #d6dece;
+  border-radius: 6px;
+  font: inherit;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.close {
+  font-size: 24px;
+  padding: 4px 10px;
+}
+fieldset {
+  padding: 12px;
+  border: 1px solid #d6dece;
+  border-radius: 6px;
+}
+legend {
+  font-size: 13px;
+}
+.category-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.category-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #45613b;
+}
+form > label {
+  display: block;
+  margin: 24px 0 10px;
+  font-size: 14px;
+}
+.create-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.create-row input {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px;
+  border: 1px solid #d6dece;
+  border-radius: 6px;
+  font: inherit;
+}
+.hint {
+  color: #697762;
+  font-size: 12px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.save-categories {
+  background: #354b36;
+  color: white;
+}
+.error {
+  color: #a13d2d;
+}

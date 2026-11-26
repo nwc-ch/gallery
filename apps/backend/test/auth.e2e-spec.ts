@@ -1,3 +1,5 @@
+import { Category } from '../src/galleries/category.entity.js';
+import { testCategoryRepository } from './auth-test.modules.js';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -36,6 +38,8 @@ describe('Google authentication', () => {
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideModule(DatabaseModule)
       .useModule(TestDatabaseModule)
+      .overrideProvider(getRepositoryToken(Category))
+      .useValue(testCategoryRepository)
       .overrideProvider(getRepositoryToken(Gallery))
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))

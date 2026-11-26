@@ -6,10 +6,20 @@ import { Gallery } from '../src/galleries/gallery.entity.js';
 import { User } from '../src/users/user.entity.js';
 import { GalleryAccess } from '../src/galleries/gallery-access.entity.js';
 import { GalleryImage } from '../src/galleries/gallery-image.entity.js';
+import { Category } from '../src/galleries/category.entity.js';
 import type { FindOperator } from 'typeorm';
 
 export const testUsers = new Map<string, AuthUser>();
 export const testAlbumAccess = new Map<string, Set<string>>();
+export const testCategoryRepository = {
+  find: vi.fn(async (_options?: object) => [] as Category[]),
+  findBy: vi.fn(async (_criteria: object) => [] as Category[]),
+  create: vi.fn((data: object) => data),
+  save: vi.fn(async (data: object) => ({
+    id: '18620211-b75e-4a8b-9394-ad89171f1136',
+    ...data,
+  })),
+};
 export const testAccessRepository = {
   delete: vi.fn(async ({ galleryId }: { galleryId: string }) => {
     testAlbumAccess.delete(galleryId);
@@ -71,6 +81,7 @@ export const testGalleryRepository = {
   createQueryBuilder: vi.fn(() => {
     let userId = '';
     const builder = {
+      leftJoinAndSelect: () => builder,
       innerJoin: (
         _entity: unknown,
         _alias: string,
@@ -93,6 +104,10 @@ export const testGalleryRepository = {
     id,
     title: 'Testgalerie',
   })),
+  findOne: vi.fn(
+    async ({ where }: { where: { id: string }; relations?: object }) =>
+      testGalleryRepository.findOneBy(where),
+  ),
   find: vi.fn(async () => [] as { id: string; title: string }[]),
   create: vi.fn((data: object) => data),
   save: vi.fn(async (data: object) => ({
@@ -125,9 +140,11 @@ function testEntityManager() {
             testGalleryRepository.findOneBy(where),
           update: testGalleryRepository.update,
           delete: testGalleryRepository.delete,
+          save: testGalleryRepository.save,
         };
       if (entity === GalleryImage) return testImageRepository;
       if (entity === GalleryAccess) return testAccessRepository;
+      if (entity === Category) return testCategoryRepository;
       throw new Error('Unexpected repository');
     },
   };

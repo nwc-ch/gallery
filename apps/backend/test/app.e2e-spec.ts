@@ -1,3 +1,5 @@
+import { Category } from '../src/galleries/category.entity.js';
+import { testCategoryRepository } from './auth-test.modules.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -24,6 +26,8 @@ describe('AppController (e2e)', () => {
     })
       .overrideModule(DatabaseModule)
       .useModule(TestDatabaseModule)
+      .overrideProvider(getRepositoryToken(Category))
+      .useValue(testCategoryRepository)
       .overrideProvider(getRepositoryToken(Gallery))
       .useValue(testGalleryRepository)
       .overrideProvider(getRepositoryToken(GalleryImage))

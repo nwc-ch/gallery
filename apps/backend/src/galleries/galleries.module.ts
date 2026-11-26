@@ -13,14 +13,21 @@ import { GalleryAccess } from './gallery-access.entity.js';
 import { GalleryAccessService } from './gallery-access.service.js';
 import { GalleryCoverService } from './gallery-cover.service.js';
 import { GalleryManagementService } from './gallery-management.service.js';
+import { Category } from './category.entity.js';
+import { CategoriesService } from './categories.service.js';
+import { CategoriesController } from './categories.controller.js';
 
 @Module({
   imports: [
     AuthModule,
     UsersModule,
-    TypeOrmModule.forFeature([Gallery, GalleryImage, GalleryAccess]),
+    TypeOrmModule.forFeature([Gallery, GalleryImage, GalleryAccess, Category]),
   ],
-  controllers: [GalleriesController, GalleryImagesController],
+  controllers: [
+    GalleriesController,
+    GalleryImagesController,
+    CategoriesController,
+  ],
   providers: [
     GalleriesService,
     GalleryImagesService,
@@ -28,6 +35,7 @@ import { GalleryManagementService } from './gallery-management.service.js';
     GalleryAccessService,
     GalleryCoverService,
     GalleryManagementService,
+    CategoriesService,
   ],
 })
 export class GalleriesModule {}

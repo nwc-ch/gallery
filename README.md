@@ -365,6 +365,48 @@ Bildantworten verwenden `Cache-Control: private, no-store`, damit der Browser
 die Zugriffsprüfung nicht durch seinen HTTP-Cache umgeht. Bereits heruntergeladene
 oder aktuell angezeigte Bilddaten können nicht rückwirkend entzogen werden.
 
+## Kategorien je Album
+
+Admins öffnen im Drei-Punkte-Menü eines Albums **Kategorien verwalten**. Der
+modale Dialog zeigt den Kategorienkatalog und die aktuelle Mehrfachauswahl.
+Mit **Neue Kategorie → Anlegen** wird eine Kategorie im gemeinsamen Katalog
+erstellt und vorausgewählt. Erst **Zuweisung speichern** übernimmt die Auswahl
+für das Album. Abwählen und Speichern entfernt Zuordnungen; eine leere Auswahl
+entfernt alle Kategorien dieses Albums. Neu angelegte Kategorien bleiben auch
+beim Abbrechen im Katalog. Namen sind erforderlich, werden am Rand bereinigt
+und dürfen höchstens 80 Zeichen lang sein; doppelte Namen werden abgewiesen.
+Pro Album sind maximal 100 Kategorien möglich.
+
+Die Albumübersicht bietet einen Kategorienfilter, der mit dem Titelfilter
+kombiniert werden kann. **Alle Kategorien** zeigt auch Alben ohne Kategorie.
+Die Auswahl enthält ausschließlich Kategorien, die mindestens einem für die
+angemeldete Person sichtbaren Album zugewiesen sind. Unbenutzte Kategorien und
+Kategorien ausschließlich fremder Alben erscheinen dort nicht. Der vollständige
+Katalog ist nur für die Zuweisung durch Admins verfügbar. Die API liefert die
+zugewiesenen Kategorien mit den bereits nach Benutzerfreigaben gefilterten
+Alben aus; auch direkte Albumzugriffe behalten ihre bisherige Zugriffskontrolle.
+
+Titel- und Kategorienfilter werden im Browser gespeichert. Eine ausgewählte
+Kategorie wird zurückgesetzt, wenn sie beim erneuten Laden in keinem sichtbaren
+Album mehr vorkommt. Mit **Alle Kategorien** wird der Kategorienfilter gelöscht.
+
+Neue OpenAPI-Endpunkte (nur Admin):
+
+- `GET /api/categories`: vollständiger Katalog für die Zuweisung.
+- `POST /api/categories` mit `{ "name": "Reisen" }`: Kategorie anlegen.
+- `PUT /api/galleries/:id/categories` mit `{ "categoryIds": ["KATEGORIE_UUID"] }`:
+  Albumzuordnung ersetzen; `{ "categoryIds": [] }` entfernt alle Zuordnungen.
+
+Schreibende Aufrufe benötigen `X-Requested-With: Gallery`. Unbekannte Kategorie-IDs
+werden abgewiesen, ohne bestehende Zuordnungen zu ändern. Zuweisungen sperren das
+Album in einer Transaktion, wie die anderen schreibenden Albumaktionen.
+
+Die durch TypeORM erzeugte Migration **AddCategories** ergänzt `categories` und
+`gallery_categories`. Sie wurde lokal ausgeführt. Auf anderen Installationen
+vor dem Backend-Start `npm run migration:run` bzw. den Migrationsdienst der
+Live-Compose-Datei ausführen. Beim Löschen eines Albums werden dessen Zuordnungen
+automatisch entfernt; der gemeinsame Kategorienkatalog bleibt bestehen.
+
 ## Google-Anmeldung
 
 Die erste Seite ist `/login`. Google ist die einzige Anmeldemöglichkeit.

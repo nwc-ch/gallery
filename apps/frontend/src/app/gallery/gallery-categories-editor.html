@@ -1,0 +1,75 @@
+<dialog
+  #dialog
+  class="categories-editor"
+  aria-labelledby="categories-title"
+  (cancel)="close($event)"
+>
+  <div class="dialog-heading">
+    <h2 id="categories-title">Kategorien verwalten</h2>
+    <button
+      type="button"
+      class="close"
+      aria-label="Dialog schließen"
+      [disabled]="busy()"
+      (click)="close()"
+    >
+      ×
+    </button>
+  </div>
+  <p>
+    Wähle die Kategorien für dieses Album. Mit „Zuweisung speichern“ wird die Auswahl übernommen.
+  </p>
+  @if (error()) {
+    <p role="alert" class="error">{{ error() }}</p>
+  }
+  @if (loading()) {
+    <p role="status">Kategorien werden geladen …</p>
+  } @else if (!loaded()) {
+    <button type="button" (click)="load()">Erneut laden</button>
+  } @else {
+    <fieldset [disabled]="busy()">
+      <legend>Kategorien auswählen (maximal 100)</legend>
+      <div class="category-list">
+        @for (category of categories(); track category.id) {
+          <label class="category-row">
+            <input
+              type="checkbox"
+              [checked]="selected().has(category.id)"
+              [disabled]="!selected().has(category.id) && selected().size >= 100"
+              (change)="toggle(category.id, $event)"
+            />
+            <span>{{ category.name }}</span>
+          </label>
+        } @empty {
+          <p>Noch keine Kategorien vorhanden.</p>
+        }
+      </div>
+    </fieldset>
+    <form (ngSubmit)="create()">
+      <label for="new-category">Neue Kategorie</label>
+      <div class="create-row">
+        <input
+          id="new-category"
+          name="categoryName"
+          [(ngModel)]="name"
+          maxlength="80"
+          required
+          [disabled]="busy()"
+          placeholder="Zum Beispiel: Familie"
+        />
+        <button type="submit" [disabled]="busy() || !name.trim() || name.trim().length > 80">
+          Anlegen
+        </button>
+      </div>
+      <p class="hint">
+        Neue Kategorien werden im Katalog angelegt und können auch anderen Alben zugewiesen werden.
+      </p>
+    </form>
+    <div class="actions">
+      <button type="button" (click)="close()" [disabled]="busy()">Abbrechen</button>
+      <button type="button" class="save-categories" (click)="save()" [disabled]="busy()">
+        {{ busy() ? 'Bitte warten …' : 'Zuweisung speichern' }}
+      </button>
+    </div>
+  }
+</dialog>

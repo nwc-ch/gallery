@@ -31,11 +31,24 @@ export class Dashboard implements OnInit, OnDestroy {
   protected readonly saving = signal(false);
   protected readonly success = signal('');
   private readonly filterStorageKey = 'gallery.album-title-filter';
+  private readonly categoryFilterStorageKey = 'gallery.album-category-filter';
   protected readonly filter = signal(this.readFilter());
+  protected readonly categoryFilter = signal(this.readFilter(this.categoryFilterStorageKey));
+  protected readonly availableCategories = computed(() => {
+    const categories = new Map(
+      this.galleries().flatMap((gallery) =>
+        (gallery.categories ?? []).map((category) => [category.id, category] as const),
+      ),
+    );
+    return [...categories.values()].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+  });
   protected readonly filteredGalleries = computed(() => {
     const query = this.filter().trim().toLocaleLowerCase('de');
-    return this.galleries().filter((gallery) =>
-      gallery.title.toLocaleLowerCase('de').includes(query),
+    return this.galleries().filter(
+      (gallery) =>
+        gallery.title.toLocaleLowerCase('de').includes(query) &&
+        (!this.categoryFilter() ||
+          gallery.categories?.some((category) => category.id === this.categoryFilter())),
     );
   });
   protected readonly createError = signal('');
@@ -44,9 +57,9 @@ export class Dashboard implements OnInit, OnDestroy {
   private dialogOpen = false;
   protected title = '';
 
-  private readFilter(): string {
+  private readFilter(key = this.filterStorageKey): string {
     try {
-      return localStorage.getItem(this.filterStorageKey) ?? '';
+      return localStorage.getItem(key) ?? '';
     } catch {
       return '';
     }
@@ -59,6 +72,16 @@ export class Dashboard implements OnInit, OnDestroy {
       else localStorage.removeItem(this.filterStorageKey);
     } catch {
       // Filtering still works when browser storage is unavailable.
+    }
+  }
+
+  protected updateCategoryFilter(value: string): void {
+    this.categoryFilter.set(value);
+    try {
+      if (value) localStorage.setItem(this.categoryFilterStorageKey, value);
+      else localStorage.removeItem(this.categoryFilterStorageKey);
+    } catch {
+      // Filtering also works without browser storage.
     }
   }
 
@@ -92,6 +115,12 @@ export class Dashboard implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     try {
       this.galleries.set(this.sortGalleries(await this.galleryApi.list()));
+      if (
+        this.categoryFilter() &&
+        !this.availableCategories().some((category) => category.id === this.categoryFilter())
+      ) {
+        this.updateCategoryFilter('');
+      }
     } catch (error) {
       await this.handleError(
         error,

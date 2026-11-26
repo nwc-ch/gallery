@@ -55,6 +55,18 @@
       @if (success()) {
         <p role="status" class="success">{{ success() }}</p>
       }
+      <label for="category-filter">Nach Kategorie filtern</label>
+      <select
+        id="category-filter"
+        [ngModel]="categoryFilter()"
+        (ngModelChange)="updateCategoryFilter($event)"
+        aria-controls="album-results"
+      >
+        <option value="">Alle Kategorien</option>
+        @for (category of availableCategories(); track category.id) {
+          <option [value]="category.id">{{ category.name }}</option>
+        }
+      </select>
       <div id="album-results">
         @if (loading()) {
           <p>Galerien werden geladen …</p>
@@ -90,7 +102,7 @@
             }
           </ul>
         } @else if (galleries().length) {
-          <p role="status">Keine Alben zu diesem Titel gefunden.</p>
+          <p role="status">Keine Alben für diese Filter gefunden.</p>
         } @else if (!error()) {
           <div class="welcome">
             <div class="mark" aria-hidden="true">g.</div>
