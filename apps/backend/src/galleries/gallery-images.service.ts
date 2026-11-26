@@ -110,12 +110,10 @@ export class GalleryImagesService {
     let storageStarted = false;
     try {
       const saved = await this.images.manager.transaction(async (manager) => {
-        const gallery = await manager
-          .getRepository(Gallery)
-          .findOne({
-            where: { id: galleryId },
-            lock: { mode: 'pessimistic_write' },
-          });
+        const gallery = await manager.getRepository(Gallery).findOne({
+          where: { id: galleryId },
+          lock: { mode: 'pessimistic_write' },
+        });
         if (!gallery)
           throw new NotFoundException('Album wurde inzwischen gelöscht.');
         storageStarted = true;
@@ -152,6 +150,43 @@ export class GalleryImagesService {
         'Das Bild konnte nicht gespeichert werden. Bitte erneut versuchen.',
       );
     }
+  }
+
+  async remove(galleryId: string, imageId: string): Promise<void> {
+    await this.images.manager.transaction(async (manager) => {
+      const galleries = manager.getRepository(Gallery);
+      const gallery = await galleries.findOne({
+        where: { id: galleryId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!gallery) throw new NotFoundException('Album nicht gefunden.');
+      const images = manager.getRepository(GalleryImage);
+      const image = await images.findOneBy({ id: imageId, galleryId });
+      if (!image) throw new NotFoundException('Bild nicht gefunden.');
+      // Delete only this image's objects; keep metadata if either deletion fails.
+      const prefix = `galleries/${galleryId}/${imageId}/`;
+      if (
+        image.originalKey !== `${prefix}original.jpg` ||
+        image.previewKey !== `${prefix}preview.jpg`
+      ) {
+        throw new ServiceUnavailableException(
+          'Die Bildzuordnung im Speicher ist ungültig.',
+        );
+      }
+      try {
+        await this.storage.remove(image.originalKey);
+        await this.storage.remove(image.previewKey);
+      } catch {
+        throw new ServiceUnavailableException(
+          'Das Bild konnte nicht vollständig aus R2 gelöscht werden. Bitte das Löschen erneut versuchen.',
+        );
+      }
+      await galleries.update(
+        { id: galleryId, coverImageId: imageId },
+        { coverImageId: null, coverCrop: null },
+      );
+      await images.delete({ id: imageId, galleryId });
+    });
   }
 
   async read(

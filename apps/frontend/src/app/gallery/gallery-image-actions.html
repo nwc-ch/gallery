@@ -1,0 +1,65 @@
+<div class="image-actions">
+  <button
+    type="button"
+    class="choose-cover"
+    (click)="chooseCover.emit()"
+    [attr.aria-label]="image().filename + ' als Albumbild auswählen'"
+  >
+    {{ isCover() ? 'Albumbild bearbeiten' : 'Als Albumbild' }}
+  </button>
+  <button
+    #trigger
+    type="button"
+    class="delete-image"
+    (click)="show()"
+    [attr.aria-label]="image().filename + ' löschen'"
+    title="Bild löschen"
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />
+    </svg>
+  </button>
+</div>
+@if (open()) {
+  <dialog #dialog aria-labelledby="delete-image-title" (cancel)="close($event)">
+    <div class="dialog-heading">
+      <h2 id="delete-image-title">Bild löschen</h2>
+      <button
+        type="button"
+        class="close"
+        aria-label="Dialog schließen"
+        [disabled]="busy()"
+        (click)="close()"
+      >
+        ×
+      </button>
+    </div>
+    <p>
+      <strong>{{ image().filename }}</strong> endgültig löschen?
+    </p>
+    <p>Das Original und die Vorschau werden auch aus dem Bildspeicher gelöscht.</p>
+    @if (isCover()) {
+      <p>Dieses Bild wird außerdem als Albumbild entfernt.</p>
+    }
+    @if (error()) {
+      <p role="alert" class="error">{{ error() }}</p>
+    }
+    @if (busy()) {
+      <p role="status">Bild wird gelöscht …</p>
+    }
+    <div class="dialog-actions">
+      <button type="button" [disabled]="busy()" (click)="close()" autofocus>Abbrechen</button>
+      <button type="button" class="confirm-delete" [disabled]="busy()" (click)="remove()">
+        {{ busy() ? 'Wird gelöscht …' : 'Endgültig löschen' }}
+      </button>
+    </div>
+  </dialog>
+}

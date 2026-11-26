@@ -226,6 +226,74 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
         .countBy({ id: otherAlbum.id }),
       1,
     );
+    // Deleting one picture must preserve the album, permissions and other pictures.
+    const file = {
+      buffer: jpg,
+      size: jpg.length,
+      originalname: 'single.jpg',
+      mimetype: 'image/jpeg',
+    };
+    const coverImage = await imageService.upload(otherAlbum.id, file);
+    const remainingImage = await imageService.upload(otherAlbum.id, file);
+    await covers.set(otherAlbum.id, { imageId: coverImage.id, crop });
+    await access.replace(otherAlbum.id, [viewer.id]);
+    const failingDeletion = new GalleryImagesService(
+      runner.manager.getRepository(GalleryImage),
+      galleries,
+      {
+        remove: async (key) => {
+          if (key.endsWith('/preview.jpg'))
+            throw new Error('partial R2 failure');
+          objects.delete(key);
+        },
+      },
+    );
+    await assert.rejects(failingDeletion.remove(otherAlbum.id, coverImage.id));
+    assert.equal(
+      (await galleries.findOne(otherAlbum.id)).coverImageId,
+      coverImage.id,
+    );
+    assert.equal(
+      await runner.manager
+        .getRepository(GalleryImage)
+        .countBy({ id: coverImage.id }),
+      1,
+    );
+    await imageService.remove(otherAlbum.id, coverImage.id);
+    const afterRemoval = await galleries.findOne(otherAlbum.id);
+    assert.equal(afterRemoval.coverImageId, null);
+    assert.equal(afterRemoval.coverCrop, null);
+    assert.equal(
+      await runner.manager
+        .getRepository(GalleryImage)
+        .countBy({ id: coverImage.id }),
+      0,
+    );
+    assert.equal(
+      await runner.manager
+        .getRepository(GalleryImage)
+        .countBy({ id: remainingImage.id }),
+      1,
+    );
+    assert.deepEqual(await access.userIds(otherAlbum.id), [viewer.id]);
+    assert.ok(
+      objects.has(
+        `galleries/${otherAlbum.id}/${remainingImage.id}/original.jpg`,
+      ),
+    );
+    assert.ok(
+      objects.has(
+        `galleries/${otherAlbum.id}/${remainingImage.id}/preview.jpg`,
+      ),
+    );
+    assert.equal(
+      objects.has(`galleries/${otherAlbum.id}/${coverImage.id}/original.jpg`),
+      false,
+    );
+    assert.equal(
+      objects.has(`galleries/${otherAlbum.id}/${coverImage.id}/preview.jpg`),
+      false,
+    );
   } finally {
     if (runner.isTransactionActive) await runner.rollbackTransaction();
     await runner.release();

@@ -10,6 +10,7 @@ describe('Dashboard galleries', () => {
   const galleries = { list: vi.fn(), create: vi.fn() };
 
   beforeEach(() => {
+    localStorage.removeItem('gallery.album-title-filter');
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
       configurable: true,
       value: function (this: HTMLDialogElement) {
@@ -33,6 +34,11 @@ describe('Dashboard galleries', () => {
         { provide: GalleriesService, useValue: galleries },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem('gallery.album-title-filter');
   });
 
   async function render() {
@@ -67,31 +73,31 @@ describe('Dashboard galleries', () => {
     expect(cover.style.top).toBe('-50%');
   });
 
-  it('sorts albums alphabetically by title, including umlauts', async () => {
+  it('sorts album titles in descending order regardless of creation date', async () => {
     galleries.list.mockResolvedValue([
-      { id: 'winter', title: 'Winter' },
-      { id: 'berge', title: 'berge' },
-      { id: 'aepfel', title: 'Äpfel' },
+      { id: 'older', title: '2014.01', createdAt: '2026-03-01T00:00:00.000Z' },
+      { id: 'newer', title: '2015.02', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'middle', title: '2015.01', createdAt: '2026-02-01T00:00:00.000Z' },
     ]);
     const fixture = await render();
     const titles = Array.from(
       fixture.nativeElement.querySelectorAll('.gallery-card h3'),
       (element: any) => element.textContent.trim(),
     );
-    expect(titles).toEqual(['Äpfel', 'berge', 'Winter']);
+    expect(titles).toEqual(['2015.02', '2015.01', '2014.01']);
   });
 
-  it('inserts a new gallery for an admin in alphabetical order', async () => {
+  it('inserts a new gallery in descending title order for an admin', async () => {
     user.update((value) => ({ ...value!, role: 'admin' }));
     galleries.list.mockResolvedValue([
-      { id: 'winter', title: 'Winter' },
-      { id: 'fruehling', title: 'Frühling' },
+      { id: 'winter', title: 'Winter', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'fruehling', title: 'Frühling', createdAt: '2026-02-01T00:00:00.000Z' },
     ]);
     galleries.create.mockResolvedValue({
       id: 'gallery-id',
       title: 'Sommer',
       createdById: 'google-id',
-      createdAt: new Date().toISOString(),
+      createdAt: '2026-03-01T00:00:00.000Z',
     });
     const fixture = await render();
     expect(fixture.nativeElement.querySelector('dialog').open).toBe(false);
@@ -112,7 +118,7 @@ describe('Dashboard galleries', () => {
       fixture.nativeElement.querySelectorAll('.gallery-card h3'),
       (element: any) => element.textContent.trim(),
     );
-    expect(titles).toEqual(['Frühling', 'Sommer', 'Winter']);
+    expect(titles).toEqual(['Winter', 'Sommer', 'Frühling']);
     expect(input.value).toBe('');
     expect(fixture.nativeElement.querySelector('dialog').open).toBe(false);
     expect(fixture.nativeElement.querySelector('[role="status"]').textContent).toContain(
@@ -149,6 +155,84 @@ describe('Dashboard galleries', () => {
     await filter('');
     expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(2);
     expect(galleries.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('remembers the filter when returning to the album overview', async () => {
+    galleries.list.mockResolvedValue([
+      { id: 'winter', title: 'Winter' },
+      { id: 'sommer', title: 'Sommer' },
+    ]);
+    const first = await render();
+    const input = first.nativeElement.querySelector('#album-filter') as HTMLInputElement;
+    input.value = 'Winter';
+    input.dispatchEvent(new Event('input'));
+    await first.whenStable();
+    expect(localStorage.getItem('gallery.album-title-filter')).toBe('Winter');
+    first.destroy();
+    const second = await render();
+    expect(second.nativeElement.querySelector('#album-filter').value).toBe('Winter');
+    expect(second.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(1);
+    expect(second.nativeElement.querySelector('.gallery-card').textContent).toContain('Winter');
+    const restoredInput = second.nativeElement.querySelector('#album-filter') as HTMLInputElement;
+    restoredInput.value = '';
+    restoredInput.dispatchEvent(new Event('input'));
+    await second.whenStable();
+    expect(localStorage.getItem('gallery.album-title-filter')).toBeNull();
+    second.destroy();
+    const third = await render();
+    expect(third.nativeElement.querySelector('#album-filter').value).toBe('');
+    expect(third.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(2);
+  });
+
+  it('restores a filter already saved in browser storage', async () => {
+    localStorage.setItem('gallery.album-title-filter', '2015.02');
+    galleries.list.mockResolvedValue([
+      { id: 'older', title: '2014.01' },
+      { id: 'newer', title: '2015.02' },
+    ]);
+    const fixture = await render();
+    expect(fixture.nativeElement.querySelector('#album-filter').value).toBe('2015.02');
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.gallery-card').textContent).toContain('2015.02');
+  });
+
+  it('keeps the active filter after creating an album', async () => {
+    user.update((value) => ({ ...value!, role: 'admin' }));
+    localStorage.setItem('gallery.album-title-filter', 'Winter');
+    galleries.create.mockResolvedValue({ id: 'new', title: 'Sommer', createdAt: '' });
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.add-album').click();
+    const title = fixture.nativeElement.querySelector('#gallery-title') as HTMLInputElement;
+    title.value = 'Sommer';
+    title.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    fixture.nativeElement
+      .querySelector('form')
+      .dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(galleries.create).toHaveBeenCalledWith('Sommer');
+    expect(fixture.nativeElement.querySelector('#album-filter').value).toBe('Winter');
+    expect(localStorage.getItem('gallery.album-title-filter')).toBe('Winter');
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(0);
+  });
+
+  it('allows filtering even if browser storage is blocked', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    galleries.list.mockResolvedValue([{ id: 'winter', title: 'Winter' }]);
+    const fixture = await render();
+    const input = fixture.nativeElement.querySelector('#album-filter') as HTMLInputElement;
+    input.value = 'Sommer';
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.gallery-card')).toHaveLength(0);
+    expect(fixture.nativeElement.textContent).toContain('Keine Alben zu diesem Titel gefunden.');
   });
 
   it('closes the create dialog with close button or Escape without saving', async () => {

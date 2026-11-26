@@ -25,6 +25,7 @@ describe('Gallery preview and upload flow', () => {
     access: vi.fn(),
     rename: vi.fn(),
     remove: vi.fn(),
+    removeImage: vi.fn(),
   };
   beforeEach(() => {
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
@@ -42,6 +43,7 @@ describe('Gallery preview and upload flow', () => {
     api.access.mockReset().mockResolvedValue({ users: [], userIds: [] });
     api.rename.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Neuer Albumtitel' });
     api.remove.mockReset().mockResolvedValue(undefined);
+    api.removeImage.mockReset().mockResolvedValue(undefined);
     user.set({ id: 'user-id', email: 'test@example.invalid', name: 'Test', role: 'admin' });
     api.get.mockReset().mockResolvedValue({ id: 'gallery-id', title: 'Sommer' });
     api.images.mockReset().mockResolvedValue({ images: [image], uploadAvailable: true });
@@ -188,6 +190,86 @@ describe('Gallery preview and upload flow', () => {
     expect(fixture.nativeElement.querySelector('.image-tile')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.album-options')).toBeNull();
     expect(fixture.nativeElement.querySelector('.choose-cover')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.delete-image')).toBeNull();
+  });
+
+  it('requires confirmation before deleting one image and updates the gallery immediately', async () => {
+    api.images.mockResolvedValue({
+      images: [image, { ...image, id: 'image-2' }],
+      uploadAvailable: true,
+    });
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.delete-image').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.removeImage).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('dialog').open).toBe(true);
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('photo.jpg');
+    fixture.nativeElement.querySelector('.confirm-delete').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(api.removeImage).toHaveBeenCalledExactlyOnceWith('gallery-id', 'image-1');
+    expect(fixture.nativeElement.querySelectorAll('.image-tile')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('dialog')).toBeNull();
+  });
+
+  it('cancels image deletion without sending a request', async () => {
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.delete-image').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.nativeElement.querySelector('dialog .close').click();
+    fixture.detectChanges();
+    expect(api.removeImage).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelectorAll('.image-tile')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('dialog')).toBeNull();
+  });
+
+  it('prevents duplicate deletion and closing the dialog while a deletion is pending', async () => {
+    let finish!: () => void;
+    api.removeImage.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.delete-image').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.nativeElement.querySelector('.confirm-delete').click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+    fixture.nativeElement.querySelector('.confirm-delete').click();
+    expect(dialog.open).toBe(true);
+    expect(fixture.nativeElement.querySelector('dialog .close').disabled).toBe(true);
+    expect(api.removeImage).toHaveBeenCalledTimes(1);
+    finish();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.image-tile')).toHaveLength(0);
+  });
+
+  it('keeps the image and confirmation dialog on failure so deletion can be retried', async () => {
+    api.removeImage.mockRejectedValueOnce(new Error('offline'));
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.delete-image').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.nativeElement.querySelector('.confirm-delete').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.image-tile')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('dialog [role="alert"]').textContent).toContain(
+      'erneut',
+    );
+    fixture.nativeElement.querySelector('.confirm-delete').click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelectorAll('.image-tile')).toHaveLength(0);
+    expect(fixture.nativeElement.textContent).toContain('Noch keine Bilder');
   });
 
   it('keeps uploads unavailable without R2 configuration', async () => {

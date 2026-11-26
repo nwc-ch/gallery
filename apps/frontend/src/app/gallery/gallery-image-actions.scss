@@ -1,0 +1,86 @@
+.image-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: 8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.image-actions button {
+  padding: 8px 10px;
+  border: 1px solid #ffffff60;
+  border-radius: 6px;
+  background: #203820ed;
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+}
+.image-actions button:hover {
+  background: #172e17;
+}
+.delete-image {
+  display: grid;
+  place-items: center;
+}
+dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid #d6dece;
+  border-radius: 12px;
+  background: #fcfbf8;
+  color: #293c31;
+  overflow-wrap: anywhere;
+}
+dialog::backdrop {
+  background: #18251dc0;
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+}
+p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+dialog button {
+  padding: 10px 16px;
+  border: 1px solid #d6dece;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+dialog .close {
+  font-size: 24px;
+  padding: 4px 10px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.dialog-actions .confirm-delete {
+  background: #a13d2d;
+  border-color: #a13d2d;
+  color: white;
+}
+dialog button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.error {
+  color: #a13d2d;
+}

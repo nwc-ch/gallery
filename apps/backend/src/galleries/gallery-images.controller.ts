@@ -1,5 +1,7 @@
 import {
   Controller,
+  Delete,
+  HttpCode,
   Get,
   Param,
   ParseUUIDPipe,
@@ -20,6 +22,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiResponse,
@@ -85,6 +88,29 @@ export class GalleryImagesController {
     @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.images.upload(galleryId, file);
+  }
+
+  @Delete(':imageId')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @HttpCode(204)
+  @ApiOperation({
+    summary:
+      'Einzelnes Bild mit Original und Vorschau aus R2 löschen (nur Admin)',
+  })
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse()
+  @ApiForbiddenResponse()
+  @ApiResponse({
+    status: 503,
+    description: 'R2-Löschung fehlgeschlagen; erneut versuchen',
+  })
+  async remove(
+    @Param('galleryId', ParseUUIDPipe) galleryId: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    response.setHeader('Cache-Control', 'no-store');
+    await this.images.remove(galleryId, imageId);
   }
 
   @Get(':imageId/preview')

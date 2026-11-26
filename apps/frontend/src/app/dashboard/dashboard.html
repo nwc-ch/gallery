@@ -49,7 +49,7 @@
         type="search"
         placeholder="Albumtitel eingeben"
         [ngModel]="filter()"
-        (ngModelChange)="filter.set($event)"
+        (ngModelChange)="updateFilter($event)"
         aria-controls="album-results"
       />
       @if (success()) {

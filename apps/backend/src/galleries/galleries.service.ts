@@ -24,11 +24,11 @@ export class GalleriesService {
           'access.galleryId = gallery.id AND access.userId = :userId',
           { userId: user.id },
         )
-        .orderBy('gallery.title', 'ASC')
-        .addOrderBy('gallery.id', 'ASC')
+        .orderBy('gallery.title', 'DESC')
+        .addOrderBy('gallery.id', 'DESC')
         .getMany();
     }
-    return this.galleries.find({ order: { title: 'ASC', id: 'ASC' } });
+    return this.galleries.find({ order: { title: 'DESC', id: 'DESC' } });
   }
 
   async findOne(id: string): Promise<Gallery> {

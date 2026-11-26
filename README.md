@@ -212,6 +212,23 @@ Die automatisierten Tests prüfen R2-SDK-Aufrufe mit simuliertem Speicher sowie
 JPG-Verarbeitung, Berechtigungen, Justified-Layout und Bildnavigation. Ein echter
 R2-Upload erfordert die oben genannten Zugangsdaten.
 
+## Einzelne Bilder löschen
+
+Admins können über das Papierkorb-Symbol auf einem Bild einen Bestätigungsdialog
+öffnen. Erst „Endgültig löschen“ entfernt das Bild. Reguläre Benutzer sehen diese
+Aktion nicht und werden auch vom Backend abgewiesen.
+
+`DELETE /api/galleries/:galleryId/images/:imageId` benötigt eine Admin-Sitzung und
+den Header `X-Requested-With: Gallery`. Der Endpunkt entfernt Original und
+Vorschau aus R2 und anschließend den Bilddatensatz. War das Bild als Albumbild
+ausgewählt, werden diese Zuordnung und der Ausschnitt ebenfalls entfernt.
+Andere Bilder, das Album und dessen Freigaben bleiben erhalten.
+
+Die Löschung sperrt dasselbe Album wie Uploads und das Löschen ganzer Alben.
+Schlägt R2 fehl, bleiben Bilddatensatz und Albumbild-Zuordnung erhalten. Bereits
+entfernte Objekte können nicht wiederhergestellt werden; der Dialog erlaubt
+einen erneuten Löschversuch. Es ist keine Datenbankmigration nötig.
+
 ## Alben umbenennen und löschen
 
 Im **Drei-Punkte-Menü** neben dem Albumtitel stehen Administratoren

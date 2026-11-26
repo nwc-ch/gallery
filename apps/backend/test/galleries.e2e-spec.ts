@@ -135,6 +135,108 @@ describe('Gallery permissions and validation', () => {
     return agent;
   }
 
+  it('allows only admins with same-origin protection to delete individual images', async () => {
+    const path = `/api/galleries/${galleryId}/images/${imageId}`;
+    await request(app.getHttpServer()).delete(path).expect(401);
+    const viewer = await login();
+    await viewer.delete(path).set('X-Requested-With', 'Gallery').expect(403);
+    const admin = await login(UserRole.Admin, 'admin');
+    await admin.delete(path).expect(403);
+    expect(storage.remove).not.toHaveBeenCalled();
+    expect(testImageRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('deletes only the selected image objects and removes its cover association', async () => {
+    const admin = await login(UserRole.Admin);
+    const prefix = `galleries/${galleryId}/${imageId}/`;
+    testImageRepository.findOneBy.mockResolvedValue({
+      id: imageId,
+      galleryId,
+      originalKey: `${prefix}original.jpg`,
+      previewKey: `${prefix}preview.jpg`,
+    } as never);
+    objects.set(`${prefix}original.jpg`, Buffer.from('original'));
+    objects.set(`${prefix}preview.jpg`, Buffer.from('preview'));
+    objects.set(
+      `galleries/${galleryId}/other/original.jpg`,
+      Buffer.from('other'),
+    );
+    await admin
+      .delete(`/api/galleries/${galleryId}/images/${imageId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(204);
+    expect(testImageRepository.findOneBy).toHaveBeenCalledWith({
+      id: imageId,
+      galleryId,
+    });
+    expect(storage.remove).toHaveBeenCalledTimes(2);
+    expect([...objects.keys()]).toEqual([
+      `galleries/${galleryId}/other/original.jpg`,
+    ]);
+    expect(testGalleryRepository.update).toHaveBeenCalledWith(
+      { id: galleryId, coverImageId: imageId },
+      { coverImageId: null, coverCrop: null },
+    );
+    expect(testImageRepository.delete).toHaveBeenCalledWith({
+      id: imageId,
+      galleryId,
+    });
+    expect(testGalleryRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('keeps image and cover metadata on a partial R2 deletion failure and permits a retry', async () => {
+    const admin = await login(UserRole.Admin);
+    const prefix = `galleries/${galleryId}/${imageId}/`;
+    testImageRepository.findOneBy.mockResolvedValue({
+      id: imageId,
+      galleryId,
+      originalKey: `${prefix}original.jpg`,
+      previewKey: `${prefix}preview.jpg`,
+    } as never);
+    objects.set(`${prefix}original.jpg`, Buffer.from('original'));
+    objects.set(`${prefix}preview.jpg`, Buffer.from('preview'));
+    storage.remove
+      .mockImplementationOnce(async (key: string) => {
+        objects.delete(key);
+      })
+      .mockRejectedValueOnce(new Error('R2 unavailable'));
+    const path = `/api/galleries/${galleryId}/images/${imageId}`;
+    await admin.delete(path).set('X-Requested-With', 'Gallery').expect(503);
+    expect(testImageRepository.delete).not.toHaveBeenCalled();
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+    expect(objects.has(`${prefix}preview.jpg`)).toBe(true);
+    await admin.delete(path).set('X-Requested-With', 'Gallery').expect(204);
+    expect(objects.size).toBe(0);
+  });
+
+  it('does not touch R2 when an image is missing or belongs to another album', async () => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .delete(`/api/galleries/${galleryId}/images/${imageId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(404);
+    expect(testImageRepository.findOneBy).toHaveBeenCalledWith({
+      id: imageId,
+      galleryId,
+    });
+    expect(storage.remove).not.toHaveBeenCalled();
+    expect(testImageRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses image keys outside the selected image prefix', async () => {
+    const admin = await login(UserRole.Admin);
+    testImageRepository.findOneBy.mockResolvedValue({
+      originalKey: 'galleries/other/original.jpg',
+      previewKey: 'galleries/other/preview.jpg',
+    } as never);
+    await admin
+      .delete(`/api/galleries/${galleryId}/images/${imageId}`)
+      .set('X-Requested-With', 'Gallery')
+      .expect(503);
+    expect(storage.remove).not.toHaveBeenCalled();
+    expect(testImageRepository.delete).not.toHaveBeenCalled();
+  });
+
   it('rejects guests', async () => {
     await request(app.getHttpServer())
       .post('/api/galleries')

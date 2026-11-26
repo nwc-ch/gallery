@@ -82,7 +82,7 @@
         </section>
       }
     }
-    <div #grid class="justified-gallery" aria-label="Bilder der Galerie">
+    <div #grid class="justified-gallery" tabindex="-1" aria-label="Bilder der Galerie">
       @for (row of rows(); track $index) {
         <div class="image-row" [style.height.px]="row.height">
           @for (item of row.items; track images()[item.index].id) {
@@ -112,16 +112,13 @@
                 <span class="image-caption">{{ image.filename }}</span>
               </button>
               @if (auth.user()?.role === 'admin') {
-                <button
-                  type="button"
-                  class="choose-cover"
-                  (click)="coverSelection.set(image)"
-                  [attr.aria-label]="image.filename + ' als Albumbild auswählen'"
-                >
-                  {{
-                    gallery()?.coverImageId === image.id ? 'Albumbild bearbeiten' : 'Als Albumbild'
-                  }}
-                </button>
+                <app-gallery-image-actions
+                  [galleryId]="gallery()!.id"
+                  [image]="image"
+                  [isCover]="gallery()?.coverImageId === image.id"
+                  (chooseCover)="coverSelection.set(image)"
+                  (removed)="imageRemoved($event)"
+                />
               }
             </div>
           }

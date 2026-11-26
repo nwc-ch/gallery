@@ -30,7 +30,8 @@ export class Dashboard implements OnInit, OnDestroy {
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly success = signal('');
-  protected readonly filter = signal('');
+  private readonly filterStorageKey = 'gallery.album-title-filter';
+  protected readonly filter = signal(this.readFilter());
   protected readonly filteredGalleries = computed(() => {
     const query = this.filter().trim().toLocaleLowerCase('de');
     return this.galleries().filter((gallery) =>
@@ -42,6 +43,24 @@ export class Dashboard implements OnInit, OnDestroy {
   private previousOverflow = '';
   private dialogOpen = false;
   protected title = '';
+
+  private readFilter(): string {
+    try {
+      return localStorage.getItem(this.filterStorageKey) ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  protected updateFilter(value: string): void {
+    this.filter.set(value);
+    try {
+      if (value.trim()) localStorage.setItem(this.filterStorageKey, value);
+      else localStorage.removeItem(this.filterStorageKey);
+    } catch {
+      // Filtering still works when browser storage is unavailable.
+    }
+  }
 
   protected openCreate(): void {
     const dialog = this.createDialog()?.nativeElement;
@@ -93,7 +112,6 @@ export class Dashboard implements OnInit, OnDestroy {
       const gallery = await this.galleryApi.create(title);
       this.galleries.update((items) => this.sortGalleries([...items, gallery]));
       this.title = '';
-      this.filter.set('');
       this.success.set('Die Galerie wurde angelegt.');
       this.dismissCreate();
     } catch (error) {
@@ -111,7 +129,8 @@ export class Dashboard implements OnInit, OnDestroy {
   private sortGalleries(items: Gallery[]): Gallery[] {
     return [...items].sort(
       (a, b) =>
-        a.title.localeCompare(b.title, 'de', { sensitivity: 'base' }) || a.id.localeCompare(b.id),
+        b.title.localeCompare(a.title, 'de', { sensitivity: 'base', numeric: true }) ||
+        b.id.localeCompare(a.id),
     );
   }
 

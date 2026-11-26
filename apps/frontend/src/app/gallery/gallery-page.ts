@@ -22,6 +22,7 @@ import { ImageLightbox } from './image-lightbox';
 import { GalleryAccessEditor } from './gallery-access-editor';
 import { GalleryCoverEditor } from './gallery-cover-editor';
 import { GalleryManagementDialog } from './gallery-management-dialog';
+import { GalleryImageActions } from './gallery-image-actions';
 
 @Component({
   selector: 'app-gallery-page',
@@ -31,6 +32,7 @@ import { GalleryManagementDialog } from './gallery-management-dialog';
     GalleryAccessEditor,
     GalleryCoverEditor,
     GalleryManagementDialog,
+    GalleryImageActions,
   ],
   templateUrl: './gallery-page.html',
   styleUrl: './gallery-page.scss',
@@ -126,6 +128,16 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected coverSaved(gallery: Gallery): void {
     this.gallery.set(gallery);
     this.coverSelection.set(null);
+  }
+
+  protected imageRemoved(id: string): void {
+    this.selectedIndex.set(null);
+    this.images.update((images) => images.filter((image) => image.id !== id));
+    if (this.coverSelection()?.id === id) this.coverSelection.set(null);
+    this.gallery.update((gallery) =>
+      gallery?.coverImageId === id ? { ...gallery, coverImageId: null, coverCrop: null } : gallery,
+    );
+    afterNextRender(() => this.grid().nativeElement.focus(), { injector: this.injector });
   }
 
   @HostListener('document:click', ['$event'])
