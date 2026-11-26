@@ -44,8 +44,9 @@ Ziel in `apps/frontend/proxy.conf.json` anpassen.
 ## Produktionsimage und Live-Server
 
 Der [Dockerfile](Dockerfile) baut ein gemeinsames Backend-/Frontend-Image.
-Die [GitHub-Actions-Pipeline](.github/workflows/backend-image.yaml) prüft das
-Projekt und veröffentlicht es unter `ghcr.io/nwc-ch/gallery`.
+Das [lokale Veröffentlichungsskript](scripts/publish-image.mjs) baut das Image
+und lädt es mit `npm run image:publish` nach `ghcr.io/nwc-ch/gallery` hoch.
+Vorher lokal mit `docker login ghcr.io` anmelden.
 
 Für `https://gallery.0808.ch` liegt eine separate
 [Live-Compose-Datei](deploy/docker-compose.yaml) mit MariaDB und einmaligem
@@ -210,6 +211,38 @@ Das Ausführen oder Zurücknehmen einer DB-Migration entfernt keine R2-Objekte.
 Die automatisierten Tests prüfen R2-SDK-Aufrufe mit simuliertem Speicher sowie
 JPG-Verarbeitung, Berechtigungen, Justified-Layout und Bildnavigation. Ein echter
 R2-Upload erfordert die oben genannten Zugangsdaten.
+
+## Albumbild mit Bildausschnitt
+
+Administratoren können bei jedem Bild eines Albums **Als Albumbild** wählen.
+Bei einem bereits ausgewählten Bild heißt die Schaltfläche **Albumbild bearbeiten**.
+Daraufhin öffnet sich ein modaler Dialog mit einem Ausschnitt im Format **3:2**:
+
+- Den Rahmen mit Maus oder Touch verschieben; ein Klick außerhalb des Rahmens
+  setzt ihn an die gewünschte Stelle.
+- Mit dem Zoom-Regler den Ausschnitt verkleinern oder vergrößern (1× bis 4×).
+- Alternativ den fokussierten Bildbereich mit den Pfeiltasten verschieben;
+  Umschalt beschleunigt die Bewegung.
+- Die zusätzliche Vorschau zeigt das Ergebnis für die Albumübersicht.
+- Mit **Als Albumbild speichern** übernehmen oder den Dialog ohne Änderung
+  über Abbrechen, Schließen oder Escape verlassen.
+
+Die Übersicht lädt weiterhin ausschließlich JPG-Vorschaubilder. Bild-ID und
+normalisierte Ausschnittkoordinaten werden in MariaDB am Album gespeichert;
+das Original und die vorhandenen R2-Objekte bleiben unverändert. Es wird keine
+zusätzliche Bilddatei erzeugt. Ein anderes Albumbild kann jederzeit gewählt werden.
+Alben ohne Auswahl behalten ihren bisherigen Platzhalter.
+
+`PUT /api/galleries/:id/cover` nimmt `{ "imageId": "BILD_UUID", "crop":
+{ "x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5 } }` entgegen.
+Koordinaten liegen zwischen 0 und 1 und beziehen sich auf das ausgerichtete Bild.
+Der Ausschnitt muss vollständig im Bild liegen und dem Format 3:2 entsprechen.
+Der Endpunkt benötigt Admin-Rechte und den Header `X-Requested-With: Gallery`;
+fremde Album-Bilder werden abgewiesen. Die bisherigen Albumfreigaben gelten
+auch für das Laden der Albumbild-Vorschau.
+
+Die TypeORM-Migration `AddGalleryCover` ergänzt die Auswahl und den Ausschnitt.
+Auf dem Live-Server vor dem Start der neuen Version die Migration ausführen.
 
 ## Rollen und Galerien
 

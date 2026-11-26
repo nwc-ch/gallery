@@ -11,6 +11,7 @@ import { GalleryImagesService } from './gallery-images.service.js';
 import { R2Service } from '../storage/r2.service.js';
 import { GalleryAccess } from './gallery-access.entity.js';
 import { GalleryAccessService } from './gallery-access.service.js';
+import { GalleryCoverService } from './gallery-cover.service.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { GalleryAccessService } from './gallery-access.service.js';
     GalleryImagesService,
     R2Service,
     GalleryAccessService,
+    GalleryCoverService,
   ],
 })
 export class GalleriesModule {}

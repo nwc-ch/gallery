@@ -207,11 +207,24 @@ input:focus-visible {
 .gallery-symbol {
   display: grid;
   place-items: center;
-  height: 100px;
+  aspect-ratio: 3 / 2;
   border-radius: 8px;
   background: #e9edde;
   color: #7b8972;
   font-size: 42px;
+}
+.album-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e9edde;
+}
+.album-cover img {
+  position: absolute;
+  max-width: none;
+  display: block;
 }
 h3 {
   font-size: 18px;

@@ -37,6 +37,23 @@ describe('Dashboard galleries', () => {
     expect(fixture.nativeElement.textContent).toContain('Noch keine Galerien');
   });
 
+  it('shows the stored album cover crop using the preview image', async () => {
+    galleries.list.mockResolvedValue([
+      {
+        id: 'album-id',
+        title: 'Album',
+        coverImageId: 'image-id',
+        coverCrop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
+      },
+    ]);
+    const fixture = await render();
+    const cover = fixture.nativeElement.querySelector('.album-cover img') as HTMLImageElement;
+    expect(cover.getAttribute('src')).toBe('/api/galleries/album-id/images/image-id/preview');
+    expect(cover.style.width).toBe('200%');
+    expect(cover.style.left).toBe('-50%');
+    expect(cover.style.top).toBe('-50%');
+  });
+
   it('creates a gallery for an admin and shows it immediately', async () => {
     user.update((value) => ({ ...value!, role: 'admin' }));
     galleries.create.mockResolvedValue({

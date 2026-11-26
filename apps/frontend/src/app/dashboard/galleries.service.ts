@@ -13,6 +13,15 @@ export interface Gallery {
   title: string;
   createdById: string;
   createdAt: string;
+  coverImageId?: string | null;
+  coverCrop?: CoverCrop | null;
+}
+
+export interface CoverCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface GalleryImage {
@@ -33,6 +42,15 @@ export interface GalleryImages {
 
 @Injectable({ providedIn: 'root' })
 export class GalleriesService {
+  saveCover(id: string, imageId: string, crop: CoverCrop): Promise<Gallery> {
+    return firstValueFrom(
+      this.http.put<Gallery>(
+        `/api/galleries/${encodeURIComponent(id)}/cover`,
+        { imageId, crop },
+        { headers: { 'X-Requested-With': 'Gallery' } },
+      ),
+    );
+  }
   access(id: string): Promise<GalleryAccess> {
     return firstValueFrom(
       this.http.get<GalleryAccess>(`/api/galleries/${encodeURIComponent(id)}/access`),

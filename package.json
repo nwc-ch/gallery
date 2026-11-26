@@ -8,6 +8,7 @@
   },
   "packageManager": "npm@11.12.1",
   "scripts": {
+    "image:publish": "node scripts/publish-image.mjs",
     "user:role": "npm run user:role --workspace=backend --",
     "test:database": "npm run test:database --workspace=backend",
     "db:up": "docker compose up -d --wait db",

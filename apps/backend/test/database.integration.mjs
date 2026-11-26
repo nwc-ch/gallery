@@ -15,6 +15,7 @@ import { GalleryImagesService } from '../dist/galleries/gallery-images.service.j
 import sharp from 'sharp';
 import { GalleryAccess } from '../dist/galleries/gallery-access.entity.js';
 import { GalleryAccessService } from '../dist/galleries/gallery-access.service.js';
+import { GalleryCoverService } from '../dist/galleries/gallery-cover.service.js';
 
 await test('MariaDB: migrated schema matches entities and Google profiles are persisted without duplicates', async () => {
   await dataSource.initialize();
@@ -100,6 +101,21 @@ await test('MariaDB: migrated schema matches entities and Google profiles are pe
     assert.equal(imageRow.height, 20);
     assert.deepEqual(objects.get(imageRow.originalKey), jpg);
     assert.ok(objects.has(imageRow.previewKey));
+    const covers = new GalleryCoverService(
+      runner.manager.getRepository(Gallery),
+      runner.manager.getRepository(GalleryImage),
+    );
+    const crop = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+    await covers.set(gallery.id, { imageId: image.id, crop });
+    const covered = await runner.manager
+      .getRepository(Gallery)
+      .findOneByOrFail({ id: gallery.id });
+    assert.equal(covered.coverImageId, image.id);
+    assert.deepEqual(covered.coverCrop, crop);
+    const otherAlbum = await galleries.create('Anderes Album', id);
+    await assert.rejects(
+      covers.set(otherAlbum.id, { imageId: image.id, crop }),
+    );
     const admin = { ...changed, role: UserRole.Admin };
     assert.equal(
       (await imageService.list(gallery.id, admin)).images[0].id,

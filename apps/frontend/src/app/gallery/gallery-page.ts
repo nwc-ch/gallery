@@ -17,10 +17,11 @@ import { GalleriesService, Gallery, GalleryImage } from '../dashboard/galleries.
 import { justifiedLayout } from './justified-layout';
 import { ImageLightbox } from './image-lightbox';
 import { GalleryAccessEditor } from './gallery-access-editor';
+import { GalleryCoverEditor } from './gallery-cover-editor';
 
 @Component({
   selector: 'app-gallery-page',
-  imports: [RouterLink, ImageLightbox, GalleryAccessEditor],
+  imports: [RouterLink, ImageLightbox, GalleryAccessEditor, GalleryCoverEditor],
   templateUrl: './gallery-page.html',
   styleUrl: './gallery-page.scss',
 })
@@ -41,6 +42,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
   protected readonly uploadErrors = signal<string[]>([]);
   protected readonly selectedIndex = signal<number | null>(null);
   protected readonly accessOpen = signal(false);
+  protected readonly coverSelection = signal<GalleryImage | null>(null);
   protected readonly failedPreviews = signal<Set<string>>(new Set());
   private readonly width = signal(0);
   protected readonly rows = computed(() =>
@@ -76,6 +78,7 @@ export class GalleryPage implements OnInit, AfterViewInit {
     this.images.set([]);
     this.selectedIndex.set(null);
     this.accessOpen.set(false);
+    this.coverSelection.set(null);
     this.progress.set('');
     this.uploadErrors.set([]);
     try {
@@ -102,6 +105,11 @@ export class GalleryPage implements OnInit, AfterViewInit {
 
   protected previewFailed(id: string): void {
     this.failedPreviews.update((value) => new Set([...value, id]));
+  }
+
+  protected coverSaved(gallery: Gallery): void {
+    this.gallery.set(gallery);
+    this.coverSelection.set(null);
   }
 
   protected async upload(event: Event): Promise<void> {

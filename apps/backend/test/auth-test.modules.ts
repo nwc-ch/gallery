@@ -56,6 +56,7 @@ export const testAccessRepository = {
 };
 
 export const testGalleryRepository = {
+  update: vi.fn(async (_criteria: object, _data: object) => ({ affected: 1 })),
   createQueryBuilder: vi.fn(() => {
     let userId = '';
     const builder = {

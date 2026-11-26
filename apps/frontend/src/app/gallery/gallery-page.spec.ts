@@ -87,6 +87,17 @@ describe('Gallery preview and upload flow', () => {
     expect(fixture.nativeElement.querySelector('app-image-lightbox')).toBeNull();
   });
 
+  it('lets admins choose a cover without opening the original image viewer', async () => {
+    const fixture = await render();
+    fixture.nativeElement.querySelector('.choose-cover').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-gallery-cover-editor')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-image-lightbox')).toBeNull();
+    fixture.nativeElement.querySelector('app-gallery-cover-editor .close').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-gallery-cover-editor')).toBeNull();
+  });
+
   it('loads permissions only after clicking the three-dot button and closes the dialog', async () => {
     const fixture = await render();
     expect(api.access).not.toHaveBeenCalled();
@@ -125,6 +136,7 @@ describe('Gallery preview and upload flow', () => {
     expect(fixture.nativeElement.querySelector('app-gallery-access-editor')).toBeNull();
     expect(fixture.nativeElement.querySelector('.image-tile')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.album-options')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.choose-cover')).toBeNull();
   });
 
   it('keeps uploads unavailable without R2 configuration', async () => {

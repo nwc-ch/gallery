@@ -166,6 +166,7 @@ h2 {
   margin-bottom: 8px;
 }
 .image-tile {
+  width: 100%;
   display: block;
   flex: 0 0 auto;
   position: relative;
@@ -175,6 +176,27 @@ h2 {
   border: 0;
   background: #e2e7d9;
   cursor: zoom-in;
+}
+.image-item {
+  flex: 0 0 auto;
+  position: relative;
+  height: 100%;
+}
+.choose-cover {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 8px 10px;
+  border: 1px solid #ffffff60;
+  border-radius: 6px;
+  background: #203820d9;
+  color: white;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.choose-cover:hover {
+  background: #172e17;
 }
 .image-tile img {
   width: 100%;

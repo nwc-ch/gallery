@@ -68,30 +68,43 @@
         <div class="image-row" [style.height.px]="row.height">
           @for (item of row.items; track images()[item.index].id) {
             @let image = images()[item.index];
-            <button
-              type="button"
-              class="image-tile"
-              [style.width.px]="item.width"
-              (click)="selectedIndex.set(item.index)"
-              [attr.aria-label]="image.filename + ' in Originalgröße öffnen'"
-            >
-              @if (failedPreviews().has(image.id)) {
-                <span class="preview-error"
-                  >Vorschau nicht verfügbar<br /><small>Original öffnen</small></span
+            <div class="image-item" [style.width.px]="item.width">
+              <button
+                type="button"
+                class="image-tile"
+                (click)="selectedIndex.set(item.index)"
+                [attr.aria-label]="image.filename + ' in Originalgröße öffnen'"
+              >
+                @if (failedPreviews().has(image.id)) {
+                  <span class="preview-error"
+                    >Vorschau nicht verfügbar<br /><small>Original öffnen</small></span
+                  >
+                } @else {
+                  <img
+                    [src]="image.previewUrl"
+                    [alt]="image.filename"
+                    [width]="image.width"
+                    [height]="image.height"
+                    loading="lazy"
+                    decoding="async"
+                    (error)="previewFailed(image.id)"
+                  />
+                }
+                <span class="image-caption">{{ image.filename }}</span>
+              </button>
+              @if (auth.user()?.role === 'admin') {
+                <button
+                  type="button"
+                  class="choose-cover"
+                  (click)="coverSelection.set(image)"
+                  [attr.aria-label]="image.filename + ' als Albumbild auswählen'"
                 >
-              } @else {
-                <img
-                  [src]="image.previewUrl"
-                  [alt]="image.filename"
-                  [width]="image.width"
-                  [height]="image.height"
-                  loading="lazy"
-                  decoding="async"
-                  (error)="previewFailed(image.id)"
-                />
+                  {{
+                    gallery()?.coverImageId === image.id ? 'Albumbild bearbeiten' : 'Als Albumbild'
+                  }}
+                </button>
               }
-              <span class="image-caption">{{ image.filename }}</span>
-            </button>
+            </div>
           }
         </div>
       }
@@ -119,5 +132,16 @@
     [images]="images()"
     [initialIndex]="selectedIndex()!"
     (closed)="selectedIndex.set(null)"
+  />
+}
+@if (coverSelection() && gallery() && auth.user()?.role === 'admin') {
+  <app-gallery-cover-editor
+    [galleryId]="gallery()!.id"
+    [image]="coverSelection()!"
+    [initialCrop]="
+      gallery()?.coverImageId === coverSelection()!.id ? (gallery()!.coverCrop ?? null) : null
+    "
+    (closed)="coverSelection.set(null)"
+    (saved)="coverSaved($event)"
   />
 }

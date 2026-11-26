@@ -1,0 +1,110 @@
+<dialog
+  #dialog
+  class="cover-dialog"
+  aria-labelledby="cover-heading"
+  aria-describedby="cover-instructions"
+  (cancel)="cancel($event)"
+>
+  <header>
+    <div>
+      <span class="eyebrow">ALBUMBILD</span>
+      <h2 id="cover-heading">Bildausschnitt auswählen</h2>
+    </div>
+    <button
+      type="button"
+      class="close"
+      (click)="close()"
+      aria-label="Albumbild-Dialog schließen"
+      autofocus
+    >
+      ✕
+    </button>
+  </header>
+  <p id="cover-instructions">
+    Verschiebe den Rahmen und passe die Größe mit dem Zoom an. Das Albumbild wird im Format 3:2
+    angezeigt.
+  </p>
+  <div class="canvas-frame">
+    <div
+      #stage
+      class="crop-stage"
+      [style.--ratio]="image().width / image().height"
+      [class.pending]="loading() || failed()"
+      tabindex="0"
+      role="group"
+      aria-label="Bildausschnitt mit Maus, Touch oder Pfeiltasten verschieben"
+      (keydown)="keydown($event)"
+      (pointerdown)="pointerDown($event)"
+      (pointermove)="pointerMove($event)"
+      (pointerup)="pointerUp()"
+      (pointercancel)="pointerUp()"
+      (lostpointercapture)="pointerUp()"
+    >
+      <img
+        [src]="image().previewUrl"
+        [alt]="image().filename"
+        draggable="false"
+        (load)="loaded()"
+        (error)="loadFailed()"
+      />
+      <div
+        class="crop-window"
+        [style.left.%]="crop().x * 100"
+        [style.top.%]="crop().y * 100"
+        [style.width.%]="crop().width * 100"
+        [style.height.%]="crop().height * 100"
+      >
+        <span></span>
+      </div>
+    </div>
+    @if (loading()) {
+      <p role="status" class="image-message">Bild wird geladen …</p>
+    }
+    @if (failed()) {
+      <p role="alert" class="image-message">
+        Die Vorschau konnte nicht geladen werden. Bitte schließe den Dialog und versuche es erneut.
+      </p>
+    }
+  </div>
+  <div class="controls">
+    <label for="cover-zoom"
+      >Zoom <strong>{{ zoom().toFixed(2) }}×</strong></label
+    ><input
+      id="cover-zoom"
+      type="range"
+      min="1"
+      max="4"
+      step="0.05"
+      [value]="zoom()"
+      [disabled]="loading() || failed() || saving()"
+      (input)="changeZoom($event)"
+    />
+  </div>
+  <div class="preview-row">
+    <div class="cover-preview" aria-label="Vorschau des Albumbilds">
+      <img
+        [src]="image().previewUrl"
+        alt=""
+        [style.width.%]="100 / crop().width"
+        [style.height.%]="100 / crop().height"
+        [style.left.%]="(-crop().x / crop().width) * 100"
+        [style.top.%]="(-crop().y / crop().height) * 100"
+      />
+    </div>
+    <p>So erscheint dein Albumbild in der Übersicht.<br />Das Original bleibt unverändert.</p>
+  </div>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  <footer>
+    <button type="button" class="secondary" (click)="close()">Abbrechen</button
+    ><button
+      type="button"
+      class="save"
+      (click)="save()"
+      [disabled]="loading() || failed() || saving()"
+    >
+      {{ saving() ? 'Wird gespeichert …' : 'Als Albumbild speichern' }}
+    </button>
+  </footer>
+</dialog>

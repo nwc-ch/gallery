@@ -35,6 +35,8 @@ import {
 } from './gallery-access.dto.js';
 import { UsersService } from '../users/users.service.js';
 import { SameOriginGuard } from '../auth/same-origin.guard.js';
+import { GalleryCoverService } from './gallery-cover.service.js';
+import { SetGalleryCoverDto } from './gallery-cover.dto.js';
 
 @ApiTags('Galleries')
 @ApiCookieAuth()
@@ -46,6 +48,7 @@ export class GalleriesController {
     private readonly galleries: GalleriesService,
     private readonly access: GalleryAccessService,
     private readonly users: UsersService,
+    private readonly covers: GalleryCoverService,
   ) {}
 
   @Get()
@@ -111,6 +114,28 @@ export class GalleriesController {
   ): Promise<UpdateGalleryAccessDto> {
     response.setHeader('Cache-Control', 'no-store');
     return { userIds: await this.access.replace(id, body.userIds) };
+  }
+
+  @Put(':id/cover')
+  @UseGuards(AdminGuard, SameOriginGuard)
+  @ApiOperation({ summary: 'Albumbild und Ausschnitt speichern (nur Admin)' })
+  @ApiOkResponse({ type: Gallery })
+  @ApiBadRequestResponse()
+  @ApiForbiddenResponse()
+  setCover(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    body: SetGalleryCoverDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<Gallery> {
+    response.setHeader('Cache-Control', 'no-store');
+    return this.covers.set(id, body);
   }
 
   @Post()

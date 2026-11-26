@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import {
   Column,
   CreateDateColumn,
@@ -9,6 +9,8 @@ import {
 } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { User } from '../users/user.entity.js';
+import { GalleryImage } from './gallery-image.entity.js';
+import { CoverCropDto } from './gallery-cover.dto.js';
 
 @Entity('galleries')
 export class Gallery {
@@ -19,6 +21,19 @@ export class Gallery {
   @ApiProperty({ maxLength: 160 })
   @Column({ type: 'varchar', length: 160 })
   title!: string;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  coverImageId!: string | null;
+
+  @ApiProperty({ type: CoverCropDto, nullable: true })
+  @Column({ type: 'json', nullable: true })
+  coverCrop!: CoverCropDto | null;
+
+  @ApiHideProperty()
+  @ManyToOne(() => GalleryImage, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'coverImageId' })
+  coverImage!: Relation<GalleryImage>;
 
   @ApiProperty()
   @Column({ type: 'varchar', length: 255 })

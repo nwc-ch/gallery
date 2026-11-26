@@ -6,18 +6,61 @@ funktionieren auch beim direkten Aufrufen oder Neuladen. Es wird ein einzelner
 App-Container betrieben; Sitzungen bleiben wie gewünscht im Arbeitsspeicher und
 enden bei dessen Neustart. HTTPS übernimmt der vorhandene Nginx Proxy Manager.
 
-## GitHub-Pipeline
+## Image lokal bauen und nach GitHub veröffentlichen
 
-`.github/workflows/backend-image.yaml` prüft Builds, Tests, Linting und die
-Migrationen gegen MariaDB. Danach baut sie das Image für `linux/amd64` und
-`linux/arm64`. Bei Push auf `main`, Versions-Tags `v*` und manuellen Läufen wird
-es nach GHCR veröffentlicht. Pull Requests bauen und prüfen, veröffentlichen
-aber kein Image. Verwendet wird das automatische `GITHUB_TOKEN` mit
-`packages: write`; zusätzliche Registry-Secrets sind dafür nicht nötig.
+Die Veröffentlichung erfolgt lokal über `scripts/publish-image.mjs`, ohne
+GitHub-Actions-Pipeline. Benötigt werden Node.js und ein laufendes Docker mit
+Buildx. Docker Desktop unterstützt die voreingestellten Plattformen
+`linux/amd64` und `linux/arm64`. Auf Linux muss für plattformfremde Builds eine
+passende Emulation vorhanden sein; alternativ nur die Zielplattform auswählen.
 
-Image-Tags umfassen `latest` für den Standardbranch, Branch-/Versions-Tags und
-`sha-<vollständiger Commit-Hash>`. Für einen bestimmten Release-Stand
-`GALLERY_IMAGE` in der Serverkonfiguration auf einen solchen SHA-Tag setzen.
+Einmalig mit dem eigenen GitHub-Benutzernamen bei GHCR anmelden:
+
+```sh
+docker login ghcr.io -u DEIN_GITHUB_BENUTZER
+```
+
+Als Passwort einen GitHub Personal Access Token (classic) mit `write:packages`
+verwenden. Das Konto benötigt Schreibzugriff auf das Paket `nwc-ch/gallery`;
+gegebenenfalls den Token für die Organisation per SSO freigeben. Den Token nicht
+im Skript oder Repository speichern.
+
+Im Repository-Verzeichnis die gewünschten Prüfungen ausführen und veröffentlichen:
+
+```sh
+npm test
+npm run test:e2e
+npm run lint
+npm run migration:run
+npm run test:database
+npm run image:publish
+```
+
+Die Datenbankbefehle setzen eine laufende lokale MariaDB voraus. Das
+Veröffentlichsskript selbst führt ausschließlich Docker-Build und Push aus;
+der Dockerfile baut Backend und Frontend. Es erstellt oder verwendet einen
+eigenen Buildx-Builder `gallery-publisher`, dessen Cache lokal erhalten bleibt.
+
+Standardmäßig werden `ghcr.io/nwc-ch/gallery:latest` und zusätzlich ein eindeutiger
+Tag `build-<UTC-Zeitstempel>` veröffentlicht. Es wird der aktuelle Arbeitsstand
+inklusive nicht committeter Änderungen gebaut, daher ist der Build-Tag keinem
+Git-Commit gleichzusetzen. Für einen bestimmten Release-Stand `GALLERY_IMAGE` auf
+dem Server auf den ausgegebenen Build-Tag setzen.
+
+Optionen:
+
+```sh
+npm run image:publish -- --dry-run
+npm run image:publish -- --tag v1.2.3
+npm run image:publish -- --platform linux/amd64
+npm run image:publish -- --help
+```
+
+`--tag` ersetzt den Standard-Tag `latest`; der eindeutige Build-Tag wird zusätzlich
+veröffentlicht. `--image ghcr.io/ORGANISATION/REPOSITORY` wählt ein anderes
+GHCR-Repository (in Kleinbuchstaben). `--dry-run` zeigt nur die geplanten Befehle.
+Der Live-Server wird durch das Skript nicht automatisch aktualisiert; dafür die
+Update-Befehle weiter unten ausführen.
 
 ## Server vorbereiten
 

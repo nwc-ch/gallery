@@ -55,6 +55,7 @@ describe('Gallery permissions and validation', () => {
     testAlbumAccess.clear();
     vi.clearAllMocks();
     testGalleryRepository.find.mockReset().mockResolvedValue([]);
+    testGalleryRepository.update.mockReset().mockResolvedValue({ affected: 1 });
     objects.clear();
     storage.configured = true;
     storage.put
@@ -370,6 +371,106 @@ describe('Gallery permissions and validation', () => {
       'preview',
       'original',
     ]);
+  });
+
+  it('limits album cover changes to admins and same-origin requests', async () => {
+    const body = { imageId, crop: { x: 0, y: 0, width: 1, height: 1 } };
+    await request(app.getHttpServer())
+      .put(`/api/galleries/${galleryId}/cover`)
+      .send(body)
+      .expect(401);
+    const viewer = await login();
+    await viewer
+      .put(`/api/galleries/${galleryId}/cover`)
+      .set('X-Requested-With', 'Gallery')
+      .send(body)
+      .expect(403);
+    const admin = await login(UserRole.Admin);
+    await admin.put(`/api/galleries/${galleryId}/cover`).send(body).expect(403);
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('stores the chosen image and crop without changing the R2 objects', async () => {
+    const admin = await login(UserRole.Admin);
+    const gallery = {
+      id: galleryId,
+      title: 'Album',
+      coverImageId: null,
+      coverCrop: null,
+    };
+    testGalleryRepository.findOneBy.mockResolvedValue(gallery as never);
+    testGalleryRepository.update.mockImplementation(
+      async (_criteria: object, patch: object) => {
+        Object.assign(gallery, patch);
+        return { affected: 1 };
+      },
+    );
+    testImageRepository.findOneBy.mockResolvedValue({
+      id: imageId,
+      galleryId,
+      width: 1800,
+      height: 1200,
+    } as never);
+    const crop = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+    const response = await admin
+      .put(`/api/galleries/${galleryId}/cover`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ imageId, crop })
+      .expect(200);
+    expect(response.body.coverImageId).toBe(imageId);
+    expect(response.body.coverCrop).toEqual(crop);
+    expect(testImageRepository.findOneBy).toHaveBeenCalledWith({
+      id: imageId,
+      galleryId,
+    });
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it('refuses images from other albums', async () => {
+    const admin = await login(UserRole.Admin);
+    await admin
+      .put(`/api/galleries/${galleryId}/cover`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ imageId, crop: { x: 0, y: 0, width: 1, height: 1 } })
+      .expect(404);
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { x: 0.75, y: 0, width: 0.5, height: 0.5 },
+    { x: 0, y: 0, width: 0.5, height: 1 },
+    { x: -1, y: 0, width: 1, height: 1 },
+    { x: 0, y: 0, width: 0, height: 0 },
+    { x: 0, y: 0, width: '1', height: 1 },
+  ])('refuses invalid cover crop %j', async (crop) => {
+    const admin = await login(UserRole.Admin);
+    testImageRepository.findOneBy.mockResolvedValue({
+      id: imageId,
+      galleryId,
+      width: 1800,
+      height: 1200,
+    } as never);
+    await admin
+      .put(`/api/galleries/${galleryId}/cover`)
+      .set('X-Requested-With', 'Gallery')
+      .send({ imageId, crop })
+      .expect(400);
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing crop and additional crop properties', async () => {
+    const admin = await login(UserRole.Admin);
+    for (const body of [
+      { imageId },
+      { imageId, crop: { x: 0, y: 0, width: 1, height: 1, role: 'admin' } },
+    ]) {
+      await admin
+        .put(`/api/galleries/${galleryId}/cover`)
+        .set('X-Requested-With', 'Gallery')
+        .send(body)
+        .expect(400);
+    }
+    expect(testGalleryRepository.update).not.toHaveBeenCalled();
   });
 
   it('offers registered users and permissions only to admins', async () => {

@@ -56,7 +56,27 @@
         <ul class="gallery-grid">
           @for (gallery of galleries(); track gallery.id) {
             <li class="gallery-card">
-              <span class="gallery-symbol" aria-hidden="true">▧</span>
+              @if (gallery.coverImageId && gallery.coverCrop; as crop) {
+                <div class="album-cover">
+                  <img
+                    [src]="
+                      '/api/galleries/' +
+                      gallery.id +
+                      '/images/' +
+                      gallery.coverImageId +
+                      '/preview'
+                    "
+                    [alt]="'Albumbild: ' + gallery.title"
+                    loading="lazy"
+                    [style.width.%]="100 / crop.width"
+                    [style.height.%]="100 / crop.height"
+                    [style.left.%]="(-crop.x / crop.width) * 100"
+                    [style.top.%]="(-crop.y / crop.height) * 100"
+                  />
+                </div>
+              } @else {
+                <span class="gallery-symbol" aria-hidden="true">▧</span>
+              }
               <h3>
                 <a [routerLink]="['/galleries', gallery.id]">{{ gallery.title }}</a>
               </h3>
